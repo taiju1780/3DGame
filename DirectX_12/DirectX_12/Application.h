@@ -1,8 +1,7 @@
 #pragma once
-#include <windows.h>
 #include <memory>
+#include <windows.h>
 
-class Wrapper;
 
 struct Size {
 	Size() {}
@@ -11,12 +10,16 @@ struct Size {
 	int h;
 };
 
+class Wrapper;
+
 class Application
 {
 private:
 	Application();
 	Application(const Application&) {};
 	void operator=(const Application&) {};
+
+	HWND _hwnd;
 
 	std::shared_ptr<Wrapper> _wrap;
 
@@ -28,7 +31,7 @@ private:
 public:
 	~Application();
 	static Application& GetInstance() {
-		Application instance;
+		static Application instance;
 		return instance;
 	}
 	HWND GetWindowHandle() const;

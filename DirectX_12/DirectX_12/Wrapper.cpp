@@ -1,11 +1,18 @@
 #include "Wrapper.h"
 #include "Application.h"
-#include <vector>
+#include <d3dcompiler.h>
+
 
 //リンク
 #pragma comment(lib,"d3d12.lib") 
 #pragma comment(lib,"dxgi.lib") 
+#pragma comment (lib,"d3dcompiler.lib")
 
+using namespace DirectX;
+
+struct Vertex {
+	XMFLOAT3 pos; //座標
+};
 
 void Wrapper::InitSwapChain()
 {
@@ -41,12 +48,29 @@ void Wrapper::InitCommand()
 {
 	HRESULT result = S_OK;
 
+	//Queue
 	D3D12_COMMAND_QUEUE_DESC cmdQdesc = {};
 	cmdQdesc.Flags					= D3D12_COMMAND_QUEUE_FLAG_NONE;
 	cmdQdesc.NodeMask				= 0;
 	cmdQdesc.Priority				= D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
 	cmdQdesc.Type					= D3D12_COMMAND_LIST_TYPE_DIRECT;
 	result = _dev->CreateCommandQueue(&cmdQdesc, IID_PPV_ARGS(&_cmdQue));
+
+	//Allocator
+	//第一引数はQueueと一緒
+	result = _dev->CreateCommandAllocator(
+		D3D12_COMMAND_LIST_TYPE_DIRECT,
+		IID_PPV_ARGS(&_cmdAllocator));
+
+	//List
+	result = _dev->CreateCommandList(
+		0,
+		D3D12_COMMAND_LIST_TYPE_DIRECT,
+		_cmdAllocator,
+		nullptr,
+		IID_PPV_ARGS(&_cmdList));
+
+	_cmdList->Close();
 }
 
 void Wrapper::InitDescriptorHeapRTV()
@@ -59,11 +83,56 @@ void Wrapper::InitDescriptorHeapRTV()
 
 	auto result = _dev->CreateDescriptorHeap(&descriptorHeeapDesc, IID_PPV_ARGS(&_rtvDescHeap));
 
+	//先頭ハンドルを取得
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvDescH = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
+
+	//デスクリプタ一個当たりのサイズを取得
 	auto rtvHeapSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	DXGI_SWAP_CHAIN_DESC swcDesc = {};
+	_swapchain->GetDesc(&swcDesc);
+	_backBuffers.resize(swcDesc.BufferCount);
+
+	for (int i = 0; i < _backBuffers.size(); i++) {
+		auto result = _swapchain->GetBuffer(i, IID_PPV_ARGS(&_backBuffers[i]));
+		_dev->CreateRenderTargetView(_backBuffers[i], nullptr, rtvDescH);
+		rtvDescH.ptr += rtvHeapSize;
+	}
+
+}
+
+void Wrapper::InitVertices()
+{
+	Vertex vertices[] = {
+		{{0.0f,0.0f,0.0f}},
+		{{1.0f,0.0f,0.0f}},
+		{{0.0f,-1.0f,0.0f}},
+	};
+
+	//リソースの初期化
+	auto result = _dev->CreateCommittedResource(
+	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&_vertexBuffer));
+
+	//マップしてメモリを確保
+	Vertex* vBufferptr = nullptr;
+	result = _vertexBuffer->Map(0, nullptr, (void**)&vBufferptr);
+	memcpy(vBufferptr, vertices, sizeof(vertices));
+	_vertexBuffer->Unmap(0, nullptr);
+
+	//バッファービュー初期化
+	_vbView.StrideInBytes = sizeof(Vertex);
+	_vbView.SizeInBytes = sizeof(vertices);
+	_vbView.BufferLocation = _vertexBuffer->GetGPUVirtualAddress();
 }
 
 Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 {
+	//フィーチャーレベル
 	D3D_FEATURE_LEVEL levels[] = {
 		D3D_FEATURE_LEVEL_12_1,
 		D3D_FEATURE_LEVEL_12_0,
@@ -101,9 +170,14 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	InitCommand();
 
-	InitSwapChain();
-}
+	InitFence();
 
+	InitSwapChain();
+
+	InitDescriptorHeapRTV();
+
+	InitVertices();
+}
 
 Wrapper::~Wrapper()
 {
@@ -111,4 +185,49 @@ Wrapper::~Wrapper()
 
 void Wrapper::Update()
 {
+	auto heapStart = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
+	float clearColor[] = { 1.0f,0.0f,0.0f,1.0f };
+	
+	//コマンドのリセット
+	auto result = _cmdAllocator->Reset();
+	result = _cmdList->Reset(_cmdAllocator, nullptr);
+
+	auto bbidx = _swapchain->GetCurrentBackBufferIndex();
+	D3D12_CPU_DESCRIPTOR_HANDLE rtvDescH = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
+	auto rtvHeapSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	rtvDescH.ptr += (bbidx * rtvHeapSize);
+	
+	//レンダーターゲット設定
+	_cmdList->OMSetRenderTargets(1, &heapStart, false, nullptr);
+	//クリア
+	_cmdList->ClearRenderTargetView(heapStart,clearColor,0, nullptr);
+
+	_cmdList->Close();
+
+	ExecuteCmd();
+
+	//待ち
+	WaitExcute();
+
+	_swapchain->Present(0, 0);
+}
+
+void Wrapper::ExecuteCmd()
+{
+	ID3D12CommandList* cmdLists[] = { _cmdList };
+	_cmdQue->ExecuteCommandLists(1, cmdLists);
+	//_cmdQue->Signal(_fence, ++_fenceValue);
+}
+
+void Wrapper::WaitExcute()
+{
+	_cmdQue->Signal(_fence, ++_fenceValue);
+	while (_fence->GetCompletedValue() != _fenceValue);
+}
+
+void Wrapper::InitFence()
+{
+	_fenceValue = 0;
+	auto result = _dev->CreateFence(_fenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&_fence));
 }

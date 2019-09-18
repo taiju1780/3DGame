@@ -1,3 +1,4 @@
-﻿  Wrapper.cpp
-c:\users\1701315\desktop\directx\directx\directx_12\directx_12\application.h(32): warning C4172: ローカル変数またはテンポラリのアドレスを返します: instance
+﻿  Application.cpp
+  Wrapper.cpp
+  コードを生成中...
   DirectX_12.vcxproj -> C:\Users\1701315\Desktop\directX\directX\DirectX_12\x64\Debug\DirectX_12.exe
