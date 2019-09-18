@@ -1,0 +1,5 @@
+﻿  Application.cpp
+  main.cpp
+  コードを生成中...
+c:\users\1701315\desktop\directx\directx\directx_12\directx_12\application.h(27): warning C4172: ローカル変数またはテンポラリのアドレスを返します: instance
+  DirectX_12.vcxproj -> C:\Users\1701315\Desktop\directX\directX\DirectX_12\Debug\DirectX_12.exe

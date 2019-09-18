@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "Wrapper.h"
 #include <wrl.h>
 
 constexpr int WINDOW_WIDTH = 1200;
@@ -17,10 +18,22 @@ LRESULT WindowProcedure(HWND hwd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
 Application::Application()
 {
+	_windowWidth = WINDOW_WIDTH;
+	_windowHeight = WINDOW_HEIGHT;
 }
 
 Application::~Application()
 {
+}
+
+HWND Application::GetWindowHandle() const
+{
+	return _hwnd;
+}
+
+Size Application::GetWIndowSize() const
+{
+	return Size(_windowWidth, _windowHeight);
 }
 
 void Application::InitWindow()
@@ -38,7 +51,7 @@ void Application::InitWindow()
 
 	WNDCLASSEX w	= {};
 	w.cbSize		= sizeof(WNDCLASSEX);
-	w.lpfnWndProc	= (WNDPROC)WindowProcedure; //コールバック関数の指定
+	w.lpfnWndProc	= (WNDPROC)WindowProcedure; //コールバック関数の指定(どこに情報を返すか)
 	w.lpszClassName = "DX12_Project";			//アプリーケーション名の指定
 	w.hInstance		= GetModuleHandle(0);		//ハンドル
 	RegisterClassEx(&w);						//アプリケーションクラス
@@ -47,28 +60,49 @@ void Application::InitWindow()
 	AdjustWindowRect(&wrc, WS_OVERLAPPEDWINDOW, false);//ウィンドウの変数は関数を使って補正する
 
 	_hwnd = CreateWindow(
-		w.lpszClassName,//クラス名指定
-		"DX12_1701315_古賀大樹",//タイトルバーの文字
-		WS_OVERLAPPEDWINDOW,//タイトルバーと境界線があるウィンドウ
-		CW_USEDEFAULT,//表示X座標はOSに任せる
-		CW_USEDEFAULT,//表示Y座標はOSに任せる
-		wrc.right - wrc.left,//ウィンドウ幅
-		wrc.bottom - wrc.top,//ウィンドウ高
-		nullptr,//親ウィンドウハンドル
-		nullptr,//メニューハンドル
-		w.hInstance,//呼び出しアプリケーションハンドル
-		nullptr//追加パラメータ
+		w.lpszClassName,			//クラス名指定
+		"DX12_1701315_古賀大樹",	//タイトルバーの文字
+		WS_OVERLAPPEDWINDOW,		//タイトルバーと境界線があるウィンドウ
+		CW_USEDEFAULT,				//表示X座標はOSに任せる
+		CW_USEDEFAULT,				//表示Y座標はOSに任せる
+		wrc.right - wrc.left,		//ウィンドウ幅
+		wrc.bottom - wrc.top,		//ウィンドウ高
+		nullptr,					//親ウィンドウハンドル
+		nullptr,					//メニューハンドル
+		w.hInstance,				//呼び出しアプリケーションハンドル
+		nullptr						//追加パラメータ
 	);
+
+	_wrap.reset(new Wrapper(w.hInstance, _hwnd));
 }
 
 void Application::Initialize()
 {
+	InitWindow();
+	CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 }
 
 void Application::Run()
 {
+	ShowWindow(_hwnd, SW_SHOW);		//ウィンドウの表示
+
+	MSG msg = {};
+	while (true)
+	{
+		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+			TranslateMessage(&msg);		//仮想キー関連の交換
+			DispatchMessage(&msg);		//処理されなかったメッセージをOSに投げ返す
+		}
+
+		if (msg.message == WM_QUIT) {
+			break;						//ループ抜け
+		}
+		_wrap->Update();
+	}
 }
 
 void Application::Terminate()
 {
+	CoUninitialize();
+	UnregisterClass("DX12_Project", GetModuleHandle(0));
 }
