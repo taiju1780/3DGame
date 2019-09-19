@@ -46,6 +46,20 @@ private:
 	void InitVertices();
 	D3D12_VERTEX_BUFFER_VIEW _vbView = {};
 
+	//シェーダ関連
+	ID3DBlob* vertexShader = nullptr;
+	ID3DBlob* pixelShader = nullptr;
+	void InitShader();
+
+	//ルートシグネチャー
+	ID3D12RootSignature* _rootSignature = nullptr;
+	
+	void InitRootSignature();
+
+	//パイプライン
+	ID3D12PipelineState* _pipeline = nullptr;
+	void InitPipeline();
+
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
 	~Wrapper();

@@ -130,6 +130,120 @@ void Wrapper::InitVertices()
 	_vbView.BufferLocation = _vertexBuffer->GetGPUVirtualAddress();
 }
 
+void Wrapper::InitShader()
+{
+	auto result = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr, "vs", "vs_5_0", 0, 0, &vertexShader, nullptr);
+	result = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr, "ps", "ps_5_0", 0, 0, &pixelShader, nullptr);
+}
+
+void Wrapper::InitRootSignature()
+{
+	//サンプラ
+	{	
+	//D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
+	//samplerDesc.AddressU				= D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	//samplerDesc.AddressV				= D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	//samplerDesc.AddressW				= D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	//samplerDesc.BorderColor				= D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;//エッジの色
+	//samplerDesc.Filter					= D3D12_FILTER_MIN_MAG_MIP_LINEAR;//特別なフィルタを使用しない
+	//samplerDesc.MaxLOD					= D3D12_FLOAT32_MAX;
+	//samplerDesc.MinLOD					= 0.0f;
+	//samplerDesc.MipLODBias				= 0.0f;
+	//samplerDesc.ShaderRegister			= 0;
+	//samplerDesc.ShaderVisibility		= D3D12_SHADER_VISIBILITY_ALL;//どのくらいシェーダに見せるか
+	//samplerDesc.RegisterSpace			= 0;
+	//samplerDesc.MaxAnisotropy			= 0;
+	//samplerDesc.ComparisonFunc			= D3D12_COMPARISON_FUNC_NEVER;
+	}
+	
+	ID3DBlob* signature = nullptr;//ID3D12Blob=メモリオブジェクト
+	ID3DBlob* error = nullptr;
+
+	D3D12_DESCRIPTOR_RANGE descTblRange = {};
+	D3D12_ROOT_PARAMETER rootParam = {};
+
+	//デスクリプタヒープの設定
+	{
+	/*descTblRange.BaseShaderRegister					= 0;
+	descTblRange.NumDescriptors						= 1;
+	descTblRange.RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descTblRange.OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	rootParam.ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam.ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
+	rootParam.DescriptorTable.NumDescriptorRanges	= 0;
+	rootParam.DescriptorTable.pDescriptorRanges		= &descTblRange;*/}
+	
+
+	D3D12_ROOT_SIGNATURE_DESC rsd = {};
+	rsd.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	{/*rsd.pParameters = &rootParam;
+	rsd.pStaticSamplers = &samplerDesc;
+	rsd.NumParameters = 1;
+	rsd.NumStaticSamplers = 1;*/}
+
+	auto result = D3D12SerializeRootSignature(
+		&rsd,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		&signature,
+		&error
+	);
+
+	result = _dev->CreateRootSignature(
+		0,
+		signature->GetBufferPointer(),
+		signature->GetBufferSize(),
+		IID_PPV_ARGS(&_rootSignature));
+}
+
+void Wrapper::InitPipeline()
+{
+	D3D12_INPUT_ELEMENT_DESC layout[] = {
+		{
+		"POSITION",
+		0,
+		DXGI_FORMAT_R32G32B32_FLOAT,
+		0,
+		D3D12_APPEND_ALIGNED_ELEMENT,
+		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+		0 },
+	};
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
+
+	//ルートシグネチャと頂点レイアウト
+	gpsDesc.pRootSignature = _rootSignature;
+	gpsDesc.InputLayout.pInputElementDescs = layout;
+	gpsDesc.InputLayout.NumElements = _countof(layout);
+
+	//シェーダ
+	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
+	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
+
+	//レンダーターゲット
+	gpsDesc.NumRenderTargets = 1;
+	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	//深度ステンシル
+	gpsDesc.DepthStencilState.DepthEnable = false;
+	gpsDesc.DepthStencilState.StencilEnable = false;
+	gpsDesc.DSVFormat;
+
+	//ラスタライザ
+	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	gpsDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+	//その他
+	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	gpsDesc.NodeMask = 0;
+	gpsDesc.SampleDesc.Count = 1;
+	gpsDesc.SampleDesc.Quality = 0;
+	gpsDesc.SampleMask = 0xffffffff;
+	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+	auto result = _dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&_pipeline));
+}
+
 Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 {
 	//フィーチャーレベル
@@ -177,6 +291,12 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	InitDescriptorHeapRTV();
 
 	InitVertices();
+
+	InitShader();
+
+	InitRootSignature();
+	
+	InitPipeline();
 }
 
 Wrapper::~Wrapper()
@@ -188,20 +308,36 @@ void Wrapper::Update()
 	auto heapStart = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
 	float clearColor[] = { 1.0f,0.0f,0.0f,1.0f };
 	
+	auto bbidx = _swapchain->GetCurrentBackBufferIndex();
+	auto rtvHeapSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	heapStart.ptr += (bbidx * rtvHeapSize);
+
 	//コマンドのリセット
 	auto result = _cmdAllocator->Reset();
 	result = _cmdList->Reset(_cmdAllocator, nullptr);
-
-	auto bbidx = _swapchain->GetCurrentBackBufferIndex();
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvDescH = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
-	auto rtvHeapSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	rtvDescH.ptr += (bbidx * rtvHeapSize);
 	
+	//バリアセット
+	D3D12_RESOURCE_BARRIER BarrierDesc = {};
+	BarrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	BarrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	BarrierDesc.Transition.pResource = _backBuffers[bbidx];
+	BarrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+	BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+	_cmdList->ResourceBarrier(1, &BarrierDesc);
+
 	//レンダーターゲット設定
 	_cmdList->OMSetRenderTargets(1, &heapStart, false, nullptr);
+
 	//クリア
 	_cmdList->ClearRenderTargetView(heapStart,clearColor,0, nullptr);
+
+	BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+
+	_cmdList->ResourceBarrier(1, &BarrierDesc);
 
 	_cmdList->Close();
 
@@ -210,19 +346,17 @@ void Wrapper::Update()
 	//待ち
 	WaitExcute();
 
-	_swapchain->Present(0, 0);
+	_swapchain->Present(1, 0);
 }
 
 void Wrapper::ExecuteCmd()
 {
-	ID3D12CommandList* cmdLists[] = { _cmdList };
-	_cmdQue->ExecuteCommandLists(1, cmdLists);
-	//_cmdQue->Signal(_fence, ++_fenceValue);
+	_cmdQue->ExecuteCommandLists(1, (ID3D12CommandList**)&_cmdList);
+	_cmdQue->Signal(_fence, ++_fenceValue);
 }
 
 void Wrapper::WaitExcute()
 {
-	_cmdQue->Signal(_fence, ++_fenceValue);
 	while (_fence->GetCompletedValue() != _fenceValue);
 }
 
