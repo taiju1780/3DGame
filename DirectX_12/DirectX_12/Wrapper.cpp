@@ -75,13 +75,13 @@ void Wrapper::InitCommand()
 
 void Wrapper::InitDescriptorHeapRTV()
 {
-	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeeapDesc = {};
-	descriptorHeeapDesc.Type				= D3D12_DESCRIPTOR_HEAP_TYPE_RTV; //レンダーターゲットビュー
-	descriptorHeeapDesc.NodeMask			= 0; 
-	descriptorHeeapDesc.NumDescriptors		= 2; //表画面と裏画面分
-	descriptorHeeapDesc.Flags				= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	D3D12_DESCRIPTOR_HEAP_DESC descriptorHeapDesc = {};
+	descriptorHeapDesc.Type				= D3D12_DESCRIPTOR_HEAP_TYPE_RTV; //レンダーターゲットビュー
+	descriptorHeapDesc.NodeMask			= 0;
+	descriptorHeapDesc.NumDescriptors		= 2; //表画面と裏画面分
+	descriptorHeapDesc.Flags				= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
-	auto result = _dev->CreateDescriptorHeap(&descriptorHeeapDesc, IID_PPV_ARGS(&_rtvDescHeap));
+	auto result = _dev->CreateDescriptorHeap(&descriptorHeapDesc, IID_PPV_ARGS(&_rtvDescHeap));
 
 	//先頭ハンドルを取得
 	D3D12_CPU_DESCRIPTOR_HANDLE rtvDescH = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
@@ -104,9 +104,10 @@ void Wrapper::InitDescriptorHeapRTV()
 void Wrapper::InitVertices()
 {
 	Vertex vertices[] = {
-		{{0.0f,0.0f,0.0f}},
-		{{1.0f,0.0f,0.0f}},
-		{{0.0f,-1.0f,0.0f}},
+		{{-0.8f,0.8f,0.0f}},
+		{{0.8f,0.8f,0.0f}},
+		{{-0.8f,-0.8f,0.0f}},
+		{{0.8f,-0.8f,0.0f}},
 	};
 
 	//リソースの初期化
@@ -132,8 +133,23 @@ void Wrapper::InitVertices()
 
 void Wrapper::InitShader()
 {
+	auto wsize = Application::GetInstance().GetWIndowSize();
 	auto result = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr, "vs", "vs_5_0", 0, 0, &vertexShader, nullptr);
 	result = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr, "ps", "ps_5_0", 0, 0, &pixelShader, nullptr);
+
+	//ビューポート設定
+	_viewport.TopLeftX = 0;
+	_viewport.TopLeftY = 0;
+	_viewport.Width = wsize.w;
+	_viewport.Height = wsize.h;
+	_viewport.MaxDepth = 1.0f;
+	_viewport.MinDepth = 0.0f;
+
+	//なんでかシザー(切り取り)矩形も必要
+	_scissorRect.left = 0;
+	_scissorRect.top = 0;
+	_scissorRect.right = wsize.w;
+	_scissorRect.bottom = wsize.h;
 }
 
 void Wrapper::InitRootSignature()
@@ -316,15 +332,25 @@ void Wrapper::Update()
 	//コマンドのリセット
 	auto result = _cmdAllocator->Reset();
 	result = _cmdList->Reset(_cmdAllocator, nullptr);
+
+	//パイプラインのセット
+	_cmdList->SetPipelineState(_pipeline);
+
+	//ルートシグネチャのセット
+	_cmdList->SetGraphicsRootSignature(_rootSignature);
+
+	_cmdList->RSSetViewports(1, &_viewport);
+	_cmdList->RSSetScissorRects(1, &_scissorRect);
+
 	
 	//バリアセット
 	D3D12_RESOURCE_BARRIER BarrierDesc = {};
-	BarrierDesc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	BarrierDesc.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-	BarrierDesc.Transition.pResource = _backBuffers[bbidx];
-	BarrierDesc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-	BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-	BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+	BarrierDesc.Type					= D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+	BarrierDesc.Flags					= D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	BarrierDesc.Transition.pResource	= _backBuffers[bbidx];
+	BarrierDesc.Transition.Subresource	= D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+	BarrierDesc.Transition.StateBefore	= D3D12_RESOURCE_STATE_PRESENT;
+	BarrierDesc.Transition.StateAfter	= D3D12_RESOURCE_STATE_RENDER_TARGET;
 
 	_cmdList->ResourceBarrier(1, &BarrierDesc);
 
@@ -333,6 +359,10 @@ void Wrapper::Update()
 
 	//クリア
 	_cmdList->ClearRenderTargetView(heapStart,clearColor,0, nullptr);
+
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
+	_cmdList->DrawInstanced(4, 1, 0, 0);
 
 	BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;

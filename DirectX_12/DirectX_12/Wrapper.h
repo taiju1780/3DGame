@@ -53,12 +53,15 @@ private:
 
 	//ルートシグネチャー
 	ID3D12RootSignature* _rootSignature = nullptr;
-	
 	void InitRootSignature();
 
 	//パイプライン
 	ID3D12PipelineState* _pipeline = nullptr;
 	void InitPipeline();
+
+	//ビューポート、シザー
+	D3D12_VIEWPORT _viewport;
+	D3D12_RECT _scissorRect;
 
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
