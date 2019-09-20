@@ -12,6 +12,7 @@ using namespace DirectX;
 
 struct Vertex {
 	XMFLOAT3 pos; //座標
+	XMFLOAT2 uv; //uv
 };
 
 void Wrapper::InitSwapChain()
@@ -104,10 +105,10 @@ void Wrapper::InitDescriptorHeapRTV()
 void Wrapper::InitVertices()
 {
 	Vertex vertices[] = {
-		{{-0.8f,0.8f,0.0f}},
-		{{0.8f,0.8f,0.0f}},
-		{{-0.8f,-0.8f,0.0f}},
-		{{0.8f,-0.8f,0.0f}},
+		{{-0.8f,0.8f,0.0f},{0,0}},
+		{{0.8f,0.8f,0.0f},{1,0}},
+		{{-0.8f,-0.8f,0.0f},{0,1}},
+		{{0.8f,-0.8f,0.0f},{1,1}},
 	};
 
 	//リソースの初期化
@@ -129,11 +130,33 @@ void Wrapper::InitVertices()
 	_vbView.StrideInBytes = sizeof(Vertex);
 	_vbView.SizeInBytes = sizeof(vertices);
 	_vbView.BufferLocation = _vertexBuffer->GetGPUVirtualAddress();
+
+
+	//多頂点用インデックス
+	std::vector<unsigned short> indices = { 0,2,1,2,3,1 };
+
+	result = _dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&_indexBuffer));
+
+	short* idxBufptr = nullptr;
+	result = _indexBuffer->Map(0, nullptr, (void**)&idxBufptr);
+	std::copy(indices.begin(), indices.end(), idxBufptr);
+	_indexBuffer->Unmap(0, nullptr);
+
+	_idxbView.BufferLocation = _indexBuffer->GetGPUVirtualAddress();
+	_idxbView.Format = DXGI_FORMAT_R16_UINT;
+	_idxbView.SizeInBytes = indices.size() * sizeof(indices[0]);
 }
 
 void Wrapper::InitShader()
 {
 	auto wsize = Application::GetInstance().GetWIndowSize();
+
 	auto result = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr, "vs", "vs_5_0", 0, 0, &vertexShader, nullptr);
 	result = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr, "ps", "ps_5_0", 0, 0, &pixelShader, nullptr);
 
@@ -145,7 +168,7 @@ void Wrapper::InitShader()
 	_viewport.MaxDepth = 1.0f;
 	_viewport.MinDepth = 0.0f;
 
-	//なんでかシザー(切り取り)矩形も必要
+	//シザー(切り取り)矩形
 	_scissorRect.left = 0;
 	_scissorRect.top = 0;
 	_scissorRect.right = wsize.w;
@@ -216,48 +239,108 @@ void Wrapper::InitPipeline()
 {
 	D3D12_INPUT_ELEMENT_DESC layout[] = {
 		{
-		"POSITION",
-		0,
-		DXGI_FORMAT_R32G32B32_FLOAT,
-		0,
-		D3D12_APPEND_ALIGNED_ELEMENT,
-		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-		0 },
+			"POSITION",
+			0,
+			DXGI_FORMAT_R32G32B32_FLOAT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0 
+		},
+
+		{
+			"TEXCOORD",
+			0,
+			DXGI_FORMAT_R32G32_FLOAT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
 	};
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
 
 	//ルートシグネチャと頂点レイアウト
-	gpsDesc.pRootSignature = _rootSignature;
-	gpsDesc.InputLayout.pInputElementDescs = layout;
-	gpsDesc.InputLayout.NumElements = _countof(layout);
+	gpsDesc.pRootSignature					= _rootSignature;
+	gpsDesc.InputLayout.pInputElementDescs	= layout;
+	gpsDesc.InputLayout.NumElements			= _countof(layout);
 
 	//シェーダ
 	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
 
 	//レンダーターゲット
-	gpsDesc.NumRenderTargets = 1;
-	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.NumRenderTargets	= 1;
+	gpsDesc.RTVFormats[0]		= DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	//深度ステンシル
-	gpsDesc.DepthStencilState.DepthEnable = false;
+	gpsDesc.DepthStencilState.DepthEnable	= false;
 	gpsDesc.DepthStencilState.StencilEnable = false;
 	gpsDesc.DSVFormat;
 
 	//ラスタライザ
-	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	gpsDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	gpsDesc.RasterizerState				= CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	gpsDesc.RasterizerState.CullMode	= D3D12_CULL_MODE_NONE;
 
 	//その他
-	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	gpsDesc.NodeMask = 0;
-	gpsDesc.SampleDesc.Count = 1;
-	gpsDesc.SampleDesc.Quality = 0;
-	gpsDesc.SampleMask = 0xffffffff;
-	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+	gpsDesc.BlendState				= CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	gpsDesc.NodeMask				= 0;
+	gpsDesc.SampleDesc.Count		= 1;
+	gpsDesc.SampleDesc.Quality		= 0;
+	gpsDesc.SampleMask				= 0xffffffff;
+	gpsDesc.PrimitiveTopologyType	= D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
 	auto result = _dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&_pipeline));
+}
+
+void Wrapper::InitTexture()
+{
+	Application& app = Application::GetInstance();
+
+	D3D12_HEAP_PROPERTIES heapprop = {};
+	heapprop.Type					= D3D12_HEAP_TYPE_CUSTOM;
+	heapprop.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	heapprop.MemoryPoolPreference	= D3D12_MEMORY_POOL_L0;
+	heapprop.CreationNodeMask		= 1;
+	heapprop.VisibleNodeMask		= 1;
+
+	D3D12_RESOURCE_DESC texDesc = {};
+	texDesc.Alignment			= 0;
+	texDesc.Width				= app.GetWIndowSize().w;
+	texDesc.Height				= app.GetWIndowSize().h;
+	texDesc.DepthOrArraySize	= 1;
+	texDesc.MipLevels			= 0;
+	texDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
+	texDesc.SampleDesc.Count	= 1;
+	texDesc.SampleDesc.Quality	= 0;
+	texDesc.Layout				= D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	texDesc.Flags				= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	texDesc.Dimension			= D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+	float clearColor[] = { 0.5,0.5,0.5,1.f };
+
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.DepthStencil.Depth = 1.0f;
+	clearValue.DepthStencil.Stencil = 0;
+	clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	std::copy(std::begin(clearColor), std::end(clearColor), clearValue.Color);
+
+	auto result = _dev->CreateCommittedResource(
+		&heapprop,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		&clearValue,
+		IID_PPV_ARGS(&_texbuff));
+
+	D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
+	HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	HeapDesc.NodeMask = 0;
+	HeapDesc.NumDescriptors = 1;
+	HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+
+
 }
 
 Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
@@ -310,6 +393,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	InitShader();
 
+	InitTexture();
+
 	InitRootSignature();
 	
 	InitPipeline();
@@ -360,9 +445,12 @@ void Wrapper::Update()
 	//クリア
 	_cmdList->ClearRenderTargetView(heapStart,clearColor,0, nullptr);
 
-	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	//頂点セット
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
-	_cmdList->DrawInstanced(4, 1, 0, 0);
+
+	_cmdList->IASetIndexBuffer(&_idxbView);
+	_cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
 	BarrierDesc.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
 	BarrierDesc.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;

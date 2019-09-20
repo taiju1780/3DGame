@@ -4,14 +4,16 @@ struct Out
 {
     float4 pos : POSITION;
     float4 svpos : SV_POSITION;
+    float2 uv : TEXCOORD;
 };
 
 //頂点シェーダ
-Out vs(float4 pos : POSITION)
+Out vs(float4 pos : POSITION, float2 uv : TEXCOORD)
 {
     Out o;
     o.svpos = pos;
     o.pos = pos;
+    o.uv = uv;
     return o;
 }
 

@@ -63,6 +63,14 @@ private:
 	D3D12_VIEWPORT _viewport;
 	D3D12_RECT _scissorRect;
 
+	//四角形描画用のインデックス関係
+	ID3D12Resource* _indexBuffer;
+	D3D12_INDEX_BUFFER_VIEW _idxbView = {};
+
+	//画像関係
+	void InitTexture();
+	ID3D12Resource* _texbuff;
+
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
 	~Wrapper();
