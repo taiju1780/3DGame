@@ -5,6 +5,15 @@
 #include <DirectXMath.h>
 #include <vector>
 
+//ワールドビュープロジェクション
+struct WVPMatrix {
+	DirectX::XMMATRIX _world;
+	DirectX::XMMATRIX _view;
+	DirectX::XMMATRIX _projection;
+	DirectX::XMMATRIX _wvp;
+	DirectX::XMMATRIX _lvp;				//float16：ライトビュー行列
+};
+
 class Wrapper
 {
 private:
@@ -42,22 +51,22 @@ private:
 	void WaitExcute();
 
 	//頂点データ
-	ID3D12Resource* _vertexBuffer = nullptr;
 	void InitVertices();
+	ID3D12Resource* _vertexBuffer = nullptr;
 	D3D12_VERTEX_BUFFER_VIEW _vbView = {};
 
 	//シェーダ関連
+	void InitShader();
 	ID3DBlob* vertexShader = nullptr;
 	ID3DBlob* pixelShader = nullptr;
-	void InitShader();
 
 	//ルートシグネチャー
-	ID3D12RootSignature* _rootSignature = nullptr;
 	void InitRootSignature();
-
+	ID3D12RootSignature* _rootSignature = nullptr;
+	
 	//パイプライン
-	ID3D12PipelineState* _pipeline = nullptr;
 	void InitPipeline();
+	ID3D12PipelineState* _pipeline = nullptr;
 
 	//ビューポート、シザー
 	D3D12_VIEWPORT _viewport;
@@ -70,6 +79,26 @@ private:
 	//画像関係
 	void InitTexture();
 	ID3D12Resource* _texbuff;
+	
+	ID3D12DescriptorHeap* _texrtvHeap = nullptr;
+	ID3D12DescriptorHeap* _texsrvHeap = nullptr;
+
+	//定数バッファ
+	void InitConstants();
+	ID3D12Resource* _cBuff;
+	ID3D12DescriptorHeap* _rgstDescHeap = nullptr;
+
+	//マトリクス関係
+	float posx;
+	float posy;
+	float posz;
+
+	float angle;
+	float anglex;
+	float angley;
+
+	WVPMatrix _wvp;
+	WVPMatrix* _mappedWvp;
 
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
