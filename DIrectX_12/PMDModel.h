@@ -1,5 +1,9 @@
 #pragma once
-#include <vector>
+#include<vector>
+#include<map>
+#include<DirectXMath.h>
+#include <dxgi1_6.h>
+#include <d3d12.h>
 
 struct PMDHeader {
 	char magic[3]; //"pmd"
@@ -34,16 +38,30 @@ struct PMDMaterial
 
 };
 
+struct PMDColor {
+	DirectX::XMFLOAT4 diffuse_color;	//dr,dg,db : 減衰色
+	DirectX::XMFLOAT4 specular_color;	//sr,sg,sb : 光沢色
+	DirectX::XMFLOAT3 ambient;			//mr,mg,mb : 環境色(Ambient)
+};
+
 class PMDModel
 {
 private:
+	//モデル
 	std::vector<PMDvertex> _verticesData;
 	std::vector<unsigned short> _indexData;
+	std::vector<PMDMaterial> _matData;
 
 	void InitModel(const char * filepath);
+	void InitMaterial(ID3D12Device* _dev);
+
+	//マテリアル
+	std::vector<ID3D12Resource*> _matBuffs;
+	PMDColor* mappedColor = nullptr;
+	ID3D12DescriptorHeap* _matHeap;
 
 public:
-	PMDModel(const char * filepath);
+	PMDModel(const char * filepath, ID3D12Device* _dev);
 	~PMDModel();
 
 	std::vector<PMDvertex> GetverticesData();
