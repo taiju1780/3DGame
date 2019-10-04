@@ -207,13 +207,15 @@ void Wrapper::InitRootSignature()
 	D3D12_ROOT_PARAMETER rootParam[2] = {};
 
 	//デスクリプタレンジの設定
+	//描画用定数バッファ
 	descTblRange[0].BaseShaderRegister					= 0;//レジスタ番号
 	descTblRange[0].NumDescriptors						= 1;
-	descTblRange[0].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblRange[0].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	descTblRange[0].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	descTblRange[1].BaseShaderRegister					= 0;//レジスタ番号
-	descTblRange[1].NumDescriptors						= 1;
+	//マテリアル用定数バッファ
+	descTblRange[1].BaseShaderRegister					= 1;//レジスタ番号
+	descTblRange[1].NumDescriptors						= _model->GetmatData().size();
 	descTblRange[1].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	descTblRange[1].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -280,7 +282,7 @@ void Wrapper::InitPipeline()
 			D3D12_APPEND_ALIGNED_ELEMENT,
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
 			0
-		},
+		},	
 	};
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
@@ -497,11 +499,6 @@ void Wrapper::InitDescriptorHeapDSV()
 
 	auto result = _dev->CreateDescriptorHeap(&_dsvDesc, IID_PPV_ARGS(&_dsvHeap));
 
-	_dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	_dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-
-	result = _dev->CreateDescriptorHeap(&_dsvDesc, IID_PPV_ARGS(&_depthSrvHeap));
-
 	//深度バッファ
 	D3D12_HEAP_PROPERTIES heappropDsv = {};
 	heappropDsv.CPUPageProperty			= D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -539,25 +536,12 @@ void Wrapper::InitDescriptorHeapDSV()
 
 	//深度バッファービュー
 	D3D12_DEPTH_STENCIL_VIEW_DESC _dsvVDesc = {};
-	_dsvVDesc.Format = DXGI_FORMAT_D32_FLOAT;
-	_dsvVDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	_dsvVDesc.Texture2D.MipSlice = 0;
-	_dsvVDesc.Flags = D3D12_DSV_FLAG_NONE;
+	_dsvVDesc.Format						= DXGI_FORMAT_D32_FLOAT;
+	_dsvVDesc.ViewDimension					= D3D12_DSV_DIMENSION_TEXTURE2D;
+	_dsvVDesc.Texture2D.MipSlice			= 0;
+	_dsvVDesc.Flags							= D3D12_DSV_FLAG_NONE;
 
 	_dev->CreateDepthStencilView(_dsvBuff, &_dsvVDesc, _dsvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	//シェーダーリソースビュー作成
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.PlaneSlice = 0;
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE HeapDescSrvH = _depthSrvHeap->GetCPUDescriptorHandleForHeapStart();
-	_dev->CreateShaderResourceView(_dsvBuff, &srvDesc, HeapDescSrvH);
 }
 
 Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
@@ -610,8 +594,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	_camera.reset(new Camera(_dev));
 
-	//const char* cfilepath = ("Model/初音ミク.pmd");
-	const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
+	const char* cfilepath = ("Model/初音ミク.pmd");
+	//const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
 
 	_model.reset(new PMDModel(cfilepath,_dev));
 
@@ -675,22 +659,33 @@ void Wrapper::Update()
 
 	//深度バッファをクリア
 	_cmdList->ClearDepthStencilView(_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
-
-	//テクスチャセット
-	_cmdList->SetDescriptorHeaps(1, &_texsrvHeap);
-	_cmdList->SetGraphicsRootDescriptorTable(0, _texsrvHeap->GetGPUDescriptorHandleForHeapStart());
 	
 	//CBVデスクリプタヒープ設定
 	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
-	_cmdList->SetGraphicsRootDescriptorTable(1, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
+	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	//頂点セット
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
+	//モデル表示
 	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
 	_cmdList->IASetIndexBuffer(&_idxbView);
-	_cmdList->DrawIndexedInstanced(_model->GetindexData().size(),1,0,0,0);
+
+	_cmdList->SetDescriptorHeaps(1, &_model->GetMatHeap());
+
+	unsigned int offset = 0;
+
+	auto mathandle = _model->GetMatHeap()->GetGPUDescriptorHandleForHeapStart();
+
+	auto incriment_size = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	
+	for (auto& m : _model->GetmatData()) {
+		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);
+		mathandle.ptr += incriment_size;
+		_cmdList->DrawIndexedInstanced(m.face_vert_count, 1, offset, 0, 0);
+		offset += m.face_vert_count;
+	}
+
 	//バリア閉じ
 	_cmdList->ResourceBarrier(
 		1,

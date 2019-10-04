@@ -22,6 +22,7 @@ unsigned int MatSizeBack = 24;
 PMDModel::PMDModel(const char * filepath, ID3D12Device* _dev)
 {
 	InitModel(filepath);
+	InitMaterial(_dev);
 }
 
 
@@ -37,6 +38,16 @@ std::vector<PMDvertex> PMDModel::GetverticesData()
 std::vector<unsigned short> PMDModel::GetindexData()
 {
 	return _indexData;
+}
+
+std::vector<PMDMaterial> PMDModel::GetmatData()
+{
+	return _matData;
+}
+
+ID3D12DescriptorHeap*& PMDModel::GetMatHeap() 
+{
+	return _matHeap;
 }
 
 void PMDModel::InitModel(const char * filepath)
@@ -101,22 +112,22 @@ void PMDModel::InitMaterial(ID3D12Device * _dev)
 
 		m->Map(0, nullptr, (void**)&mappedColor);
 
-		////ディフューズ
-		//mappedColor->diffuse_color.x = pMat[idx].diffuse_color.x;
-		//mappedColor->diffuse_color.y = pMat[idx].diffuse_color.y;
-		//mappedColor->diffuse_color.z = pMat[idx].diffuse_color.z;
-		//mappedColor->diffuse_color.w = pMat[idx].alpha;
+		//ディフューズ
+		mappedColor->diffuse_color.x = pMat[idx].diffuse_color.x;
+		mappedColor->diffuse_color.y = pMat[idx].diffuse_color.y;
+		mappedColor->diffuse_color.z = pMat[idx].diffuse_color.z;
+		mappedColor->diffuse_color.w = pMat[idx].alpha;
 
-		////アンビエント
-		//mappedColor->ambient.x = pMat[idx].mirror_color.x;
-		//mappedColor->ambient.y = pMat[idx].mirror_color.y;
-		//mappedColor->ambient.z = pMat[idx].mirror_color.z;
+		//アンビエント
+		mappedColor->ambient.x = pMat[idx].mirror_color.x;
+		mappedColor->ambient.y = pMat[idx].mirror_color.y;
+		mappedColor->ambient.z = pMat[idx].mirror_color.z;
 
-		////スペキュラー
-		//mappedColor->specular_color.x = pMat[idx].specular_color.x;
-		//mappedColor->specular_color.y = pMat[idx].specular_color.y;
-		//mappedColor->specular_color.z = pMat[idx].specular_color.z;
-		//mappedColor->specular_color.w = pMat[idx].specular;
+		//スペキュラー
+		mappedColor->specular_color.x = pMat[idx].specular_color.x;
+		mappedColor->specular_color.y = pMat[idx].specular_color.y;
+		mappedColor->specular_color.z = pMat[idx].specular_color.z;
+		mappedColor->specular_color.w = pMat[idx].specular;
 
 		m->Unmap(0, nullptr);
 
@@ -124,17 +135,45 @@ void PMDModel::InitMaterial(ID3D12Device * _dev)
 	}
 
 	D3D12_DESCRIPTOR_HEAP_DESC matHeapDesc = {};
-	matHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	matHeapDesc.NodeMask = 0;
-	matHeapDesc.NumDescriptors = pMat.size();;
-	matHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	matHeapDesc.Flags					= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	matHeapDesc.NodeMask				= 0;
+	matHeapDesc.NumDescriptors			= pMat.size();;
+	matHeapDesc.Type					= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	auto result = _dev->CreateDescriptorHeap(&matHeapDesc, IID_PPV_ARGS(&_matHeap));
 
-	D3D12_CONSTANT_BUFFER_VIEW_DESC matBview = {};
+	D3D12_CONSTANT_BUFFER_VIEW_DESC matViewDesc = {};
 	auto matH = _matHeap->GetCPUDescriptorHandleForHeapStart();
 
 	for (auto i = 0; i < pMat.size(); ++i) {
-
+		//定数バッファ
+		matViewDesc.BufferLocation = _matBuffs[i]->GetGPUVirtualAddress();
+		matViewDesc.SizeInBytes = size;
+		_dev->CreateConstantBufferView(&matViewDesc, matH);
+		matH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	}
+}
+
+std::wstring PMDModel::StringToWStirng(const std::string& str) {
+	auto ssize = MultiByteToWideChar(
+		CP_ACP,
+		MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
+		str.data(),
+		str.length(),
+		nullptr,
+		0
+	);
+
+	std::wstring wstr;
+	wstr.resize(ssize);
+
+	ssize = MultiByteToWideChar(
+		CP_ACP,
+		MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
+		str.data(),
+		str.length(),
+		&wstr[0],
+		ssize);
+	assert(ssize == wstr.length());
+	return wstr;
 }

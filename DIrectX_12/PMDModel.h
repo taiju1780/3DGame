@@ -25,11 +25,11 @@ struct PMDvertex {
 
 struct PMDMaterial
 {
-	float diffuse_color[3];		//rgb
+	DirectX::XMFLOAT3 diffuse_color;		//rgb
 	float alpha;
 	float specular;
-	float specular_color[3];	//rgb
-	float mirror_color[3];		//rgb
+	DirectX::XMFLOAT3 specular_color;	//rgb
+	DirectX::XMFLOAT3 mirror_color;		//rgb
 	unsigned char toon_index;	//toon.bmp
 	unsigned char edge_flag;	//ó÷äsÅAâe
 	//Ç±Ç±Ç‹Ç≈ÇSÇUÉoÉCÉg
@@ -60,11 +60,16 @@ private:
 	PMDColor* mappedColor = nullptr;
 	ID3D12DescriptorHeap* _matHeap;
 
+	std::wstring StringToWStirng(const std::string& str);
+
 public:
 	PMDModel(const char * filepath, ID3D12Device* _dev);
 	~PMDModel();
 
 	std::vector<PMDvertex> GetverticesData();
 	std::vector<unsigned short> GetindexData();
+	std::vector<PMDMaterial> GetmatData();
+	ID3D12DescriptorHeap*& GetMatHeap();
+
 };
 

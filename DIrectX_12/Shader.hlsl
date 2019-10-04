@@ -22,13 +22,19 @@ struct Out
     float3 normal : NORMAL;
 };
 
+//定数レジスタ１
+//マテリアル用
+cbuffer Material : register(b1)
+{
+    float4 diffuse;
+    float4 specular;
+    float3 ambient;
+}
+
 //頂点シェーダ
 Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL)
 {
     Out o;
-    //pos = mul(world, pos);
-    //pos = mul(view, pos);
-    //pos = mul(proj, pos);
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(wvp, float4(pos, 1));
     o.uv = uv;
@@ -41,15 +47,30 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL)
 //ピクセルシェーダ
 float4 ps(Out o) : SV_Target
 {
+     //視線
+    float3 eye = float3(0, 15, -15);
+
+    //視線ベクトル
+    float3 ray = o.pos.xyz - eye;
+
+    //上ベクトル
+    float3 up = float3(0, 1, 0);
+
     //float4 ret = tex.Sample(smp, o.uv);
     //return ret;
 
     //return float4((o.pos.xy + float2(1, 1)) / 2,1,1);
     float3 light = float3(-1, 1, -1);
     light = normalize(light);
-    float brightness = dot(o.normal, light);
-    return float4(brightness, brightness, brightness, 1);
+    float brightness = saturate(dot(o.normal, light));
+    brightness = saturate(1 - acos(brightness) / 3.141592f);
 
+    float3 mirror = normalize(reflect(-light, o.normal));
+    float3 spec = pow(saturate(dot(mirror, -ray)), specular.a);
+    float3 matColor = saturate(diffuse.rgb + (specular.rgb * spec));
+    float3 color = mul(matColor, brightness);
+    return float4(color,diffuse.a);
     //return float4(o.normal, 1);
 
+    //return float4(brightness * diffuse.r, brightness * diffuse.g, brightness * diffuse.b,1);
 }
