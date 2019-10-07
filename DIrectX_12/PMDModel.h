@@ -62,6 +62,15 @@ private:
 
 	std::wstring StringToWStirng(const std::string& str);
 
+	//テクスチャ
+	std::vector<std::string> _texturePaths;
+	void CreatModelTex(ID3D12Device* _dev);
+
+	std::vector<ID3D12Resource*> _TexBuff;
+	ID3D12Resource* _whiteTexbuff;
+
+	void CreateWhiteTexture(ID3D12Device* _dev);
+
 public:
 	PMDModel(const char * filepath, ID3D12Device* _dev);
 	~PMDModel();

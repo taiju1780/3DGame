@@ -69,7 +69,7 @@ float4 ps(Out o) : SV_Target
     float3 spec = pow(saturate(dot(mirror, -ray)), specular.a);
     float3 matColor = saturate(diffuse.rgb + (specular.rgb * spec));
     float3 color = mul(matColor, brightness);
-    return float4(color,diffuse.a);
+    return float4(color, diffuse.a) * tex.Sample(smp, o.uv);
     //return float4(o.normal, 1);
 
     //return float4(brightness * diffuse.r, brightness * diffuse.g, brightness * diffuse.b,1);

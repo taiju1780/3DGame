@@ -203,11 +203,11 @@ void Wrapper::InitRootSignature()
 	ID3DBlob* signature = nullptr;//ID3D12Blob=メモリオブジェクト
 	ID3DBlob* error = nullptr;
 
-	D3D12_DESCRIPTOR_RANGE descTblRange[2] = {};
+	D3D12_DESCRIPTOR_RANGE descTblRange[3] = {};
 	D3D12_ROOT_PARAMETER rootParam[2] = {};
 
 	//デスクリプタレンジの設定
-	//描画用定数バッファ
+	//座標変換定数バッファ
 	descTblRange[0].BaseShaderRegister					= 0;//レジスタ番号
 	descTblRange[0].NumDescriptors						= 1;
 	descTblRange[0].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
@@ -219,14 +219,22 @@ void Wrapper::InitRootSignature()
 	descTblRange[1].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	descTblRange[1].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	//テクスチャ用バッファ(SRV)
+	descTblRange[2].BaseShaderRegister					= 0;//レジスタ番号
+	descTblRange[2].NumDescriptors						= 1;
+	descTblRange[2].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblRange[2].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//param
 	rootParam[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParam[0].ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
 	rootParam[0].DescriptorTable.NumDescriptorRanges	= 1;
 	rootParam[0].DescriptorTable.pDescriptorRanges		= &descTblRange[0];
 	
+	//マテリアル＋テクスチャ
 	rootParam[1].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParam[1].ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
-	rootParam[1].DescriptorTable.NumDescriptorRanges	= 1;
+	rootParam[1].DescriptorTable.NumDescriptorRanges	= 2;
 	rootParam[1].DescriptorTable.pDescriptorRanges		= &descTblRange[1];
 	
 	//ルートシグネチャ
@@ -677,7 +685,7 @@ void Wrapper::Update()
 
 	auto mathandle = _model->GetMatHeap()->GetGPUDescriptorHandleForHeapStart();
 
-	auto incriment_size = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	auto incriment_size = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
 	
 	for (auto& m : _model->GetmatData()) {
 		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);
