@@ -23,7 +23,7 @@ using namespace DirectX;
 
 namespace {
 	std::string GetTexPath(const char* modelpath) {
-		std::string _Modelpath;
+		std::string _Modelpath = modelpath;
 		auto idx1 = _Modelpath.rfind("/");
 		auto idx2 = _Modelpath.rfind("\\");
 		idx2 = std::string::npos ? 0 : idx2;
@@ -40,18 +40,17 @@ void PMDModel::CreatModelTex(ID3D12Device * _dev)
 
 	_TexBuff.resize(_texturepath.size());
 
-	for (auto i = 0; 0 < _texturepath.size(); ++i) {
+	for (int i = 0; i < _texturepath.size(); i++) {
 
 		TexMetadata metadata = {};
 		ScratchImage scratchimg = {};
 
-		_TexBuff[i] = _whiteTexbuff;
+		//_TexBuff[i] = _whiteTexbuff;
 
 		if (_texturepath[i] == "")continue;
 
 		auto texpath = StringToWStirng(_texturepath[i]);
-		auto folder = "Model/";
-
+		
 		auto result = LoadFromWICFile(
 			texpath.c_str(),
 			WIC_FLAGS_NONE,
@@ -105,24 +104,24 @@ void PMDModel::CreatModelTex(ID3D12Device * _dev)
 void PMDModel::CreateWhiteTexture(ID3D12Device* _dev)
 {
 	D3D12_HEAP_PROPERTIES Wheapprop = {};
-	Wheapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
-	Wheapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	Wheapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	Wheapprop.CreationNodeMask = 1;
-	Wheapprop.VisibleNodeMask = 1;
+	Wheapprop.Type					= D3D12_HEAP_TYPE_CUSTOM;
+	Wheapprop.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	Wheapprop.MemoryPoolPreference	= D3D12_MEMORY_POOL_L0;
+	Wheapprop.CreationNodeMask		= 1;
+	Wheapprop.VisibleNodeMask		= 1;
 
 	//テクスチャデスク
 	D3D12_RESOURCE_DESC WtexDesc = {};
-	WtexDesc.Alignment = 0;									//先頭からなので0
-	WtexDesc.DepthOrArraySize = 1;									//リソースが2Dで配列でもないので１
-	WtexDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;	//何次元テクスチャか(TEXTURE2D)
-	WtexDesc.Flags = D3D12_RESOURCE_FLAG_NONE;			//NONE
-	WtexDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;			//例によって
-	WtexDesc.Width = 4;									//テクスチャ幅
-	WtexDesc.Height = 4;									//テクスチャ高さ
-	WtexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;		//決定できないのでUNKNOWN
-	WtexDesc.MipLevels = 1;									//ミップ使ってないので0
-	WtexDesc.SampleDesc.Count = 1;
+	WtexDesc.Alignment			= 0;									//先頭からなので0
+	WtexDesc.DepthOrArraySize	= 1;									//リソースが2Dで配列でもないので１
+	WtexDesc.Dimension			= D3D12_RESOURCE_DIMENSION_TEXTURE2D;	//何次元テクスチャか(TEXTURE2D)
+	WtexDesc.Flags				= D3D12_RESOURCE_FLAG_NONE;			//NONE
+	WtexDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;			//例によって
+	WtexDesc.Width				= 4;									//テクスチャ幅
+	WtexDesc.Height				= 4;									//テクスチャ高さ
+	WtexDesc.Layout				= D3D12_TEXTURE_LAYOUT_UNKNOWN;		//決定できないのでUNKNOWN
+	WtexDesc.MipLevels			= 1;									//ミップ使ってないので0
+	WtexDesc.SampleDesc.Count	= 1;
 	WtexDesc.SampleDesc.Quality = 0;
 
 	auto result = _dev->CreateCommittedResource(
@@ -279,19 +278,19 @@ void PMDModel::InitMaterial(ID3D12Device * _dev)
 	D3D12_CONSTANT_BUFFER_VIEW_DESC matViewDesc = {};
 	auto matH = _matHeap->GetCPUDescriptorHandleForHeapStart();
 
-	//テクスチャのヒープ
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format							= DXGI_FORMAT_R8G8B8A8_UNORM;
-	srvDesc.Shader4ComponentMapping			= D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.ViewDimension					= D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels				= 1;
-
 	for (auto i = 0; i < pMat.size(); ++i) {
 		//定数バッファ
 		matViewDesc.BufferLocation	= _matBuffs[i]->GetGPUVirtualAddress();
 		matViewDesc.SizeInBytes		= size;
 		_dev->CreateConstantBufferView(&matViewDesc, matH);
 		matH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		
+		//テクスチャのヒープ
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels = 1;
 
 		//t1
 		_dev->CreateShaderResourceView(_TexBuff[i], &srvDesc, matH);

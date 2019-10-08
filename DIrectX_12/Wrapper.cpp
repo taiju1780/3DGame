@@ -105,7 +105,6 @@ void Wrapper::InitDescriptorHeapRTV()
 		_dev->CreateRenderTargetView(_backBuffers[i], nullptr, rtvDescH);
 		rtvDescH.ptr += rtvHeapSize;
 	}
-
 }
 
 void Wrapper::InitVertices()
@@ -155,9 +154,9 @@ void Wrapper::InitVertices()
 	_indexBuffer->Unmap(0, nullptr);
 
 	//バッファビューの設定
-	_idxbView.BufferLocation = _indexBuffer->GetGPUVirtualAddress();
-	_idxbView.Format = DXGI_FORMAT_R16_UINT;
-	_idxbView.SizeInBytes = indices.size() * sizeof(indices[0]);
+	_idxbView.BufferLocation	= _indexBuffer->GetGPUVirtualAddress();
+	_idxbView.Format			= DXGI_FORMAT_R16_UINT;
+	_idxbView.SizeInBytes		= indices.size() * sizeof(indices[0]);
 }
 
 void Wrapper::InitShader()
@@ -225,7 +224,8 @@ void Wrapper::InitRootSignature()
 	descTblRange[2].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblRange[2].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	//param
+	//paramの設定
+	//座標変換
 	rootParam[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParam[0].ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
 	rootParam[0].DescriptorTable.NumDescriptorRanges	= 1;
@@ -685,7 +685,8 @@ void Wrapper::Update()
 
 	auto mathandle = _model->GetMatHeap()->GetGPUDescriptorHandleForHeapStart();
 
-	auto incriment_size = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
+	auto incriment_size = 
+		_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
 	
 	for (auto& m : _model->GetmatData()) {
 		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);

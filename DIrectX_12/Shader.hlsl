@@ -60,17 +60,17 @@ float4 ps(Out o) : SV_Target
     //return ret;
 
     //return float4((o.pos.xy + float2(1, 1)) / 2,1,1);
-    float3 light = float3(-1, 1, -1);
+    float3 light = float3(1, -1, 1);
     light = normalize(light);
-    float brightness = saturate(dot(o.normal, light));
+    float brightness = saturate(dot(-light, o.normal));
     brightness = saturate(1 - acos(brightness) / 3.141592f);
 
     float3 mirror = normalize(reflect(-light, o.normal));
     float3 spec = pow(saturate(dot(mirror, -ray)), specular.a);
     float3 matColor = saturate(diffuse.rgb + (specular.rgb * spec));
     float3 color = mul(matColor, brightness);
-    return float4(color, diffuse.a) * tex.Sample(smp, o.uv);
+    //return float4(color, diffuse.a) ;
     //return float4(o.normal, 1);
 
-    //return float4(brightness * diffuse.r, brightness * diffuse.g, brightness * diffuse.b,1);
+    return float4(brightness, brightness, brightness, 1) * diffuse * tex.Sample(smp, o.uv);
 }
