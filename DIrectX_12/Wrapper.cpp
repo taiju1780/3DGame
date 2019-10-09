@@ -214,13 +214,13 @@ void Wrapper::InitRootSignature()
 
 	//マテリアル用定数バッファ
 	descTblRange[1].BaseShaderRegister					= 1;//レジスタ番号
-	descTblRange[1].NumDescriptors						= _model->GetmatData().size();
+	descTblRange[1].NumDescriptors						= 1;
 	descTblRange[1].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	descTblRange[1].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	//テクスチャ用バッファ(SRV)
 	descTblRange[2].BaseShaderRegister					= 0;//レジスタ番号
-	descTblRange[2].NumDescriptors						= 1;
+	descTblRange[2].NumDescriptors						= 3;
 	descTblRange[2].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblRange[2].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -603,7 +603,10 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	_camera.reset(new Camera(_dev));
 
 	const char* cfilepath = ("Model/初音ミク.pmd");
+	//const char* cfilepath = ("Model/巡音ルカ.pmd");
 	//const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
+	//const char* cfilepath = ("Model/hibiki/我那覇響v1.pmd");
+	//const char* cfilepath = ("Model/hibari/雲雀Ver1.10.pmd");
 
 	_model.reset(new PMDModel(cfilepath,_dev));
 
@@ -686,7 +689,7 @@ void Wrapper::Update()
 	auto mathandle = _model->GetMatHeap()->GetGPUDescriptorHandleForHeapStart();
 
 	auto incriment_size = 
-		_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
+		_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 4;
 	
 	for (auto& m : _model->GetmatData()) {
 		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);

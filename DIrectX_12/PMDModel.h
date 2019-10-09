@@ -1,6 +1,7 @@
 #pragma once
 #include<vector>
 #include<map>
+#include<array>
 #include<DirectXMath.h>
 #include <dxgi1_6.h>
 #include <d3d12.h>
@@ -44,6 +45,15 @@ struct PMDColor {
 	DirectX::XMFLOAT3 ambient;			//mr,mg,mb : 環境色(Ambient)
 };
 
+struct PMDbone {
+	char bone_name[20];						// ボーン名
+	unsigned short parent_bone_index;		// 親ボーン番号(ない場合は0xFFFF)
+	unsigned short tail_pos_bone_index;		// tail位置のボーン番号(チェーン末端の場合は0xFFFF 0 →補足2) // 親：子は1：多なので、主に位置決め用
+	unsigned char bone_type;				// ボーンの種類
+	unsigned short ik_parent_bone_index;	// IKボーン番号(影響IKボーン。ない場合は0)
+	DirectX::XMFLOAT3 bone_head_pos;		// x, y, z // ボーンのヘッドの位置
+};
+
 class PMDModel
 {
 private:
@@ -67,9 +77,27 @@ private:
 	void CreatModelTex(ID3D12Device* _dev);
 
 	std::vector<ID3D12Resource*> _TexBuff;
+	std::vector<ID3D12Resource*> _TexBuffspa;
+	std::vector<ID3D12Resource*> _TexBuffsph;
+
 	ID3D12Resource* _whiteTexbuff;
+	ID3D12Resource* _blackTexbuff;
 
 	void CreateWhiteTexture(ID3D12Device* _dev);
+	void CreateBlackTexture(ID3D12Device* _dev);
+
+	//born
+	std::vector<PMDbone> _bones;
+
+	//Toon
+	void InitToon(std::string path,ID3D12Device * _dev);
+
+	std::string toonfilepath;
+	std::vector<ID3D12Resource*> _ToonBuff;
+	ID3D12Resource* _gladTexBuff;
+	std::array<char[100], 10> toonTexNames;
+	std::string GetToonTexpathFromIndex(int idx, std::string folderpath);
+	void CreateGraduation(ID3D12Device* _dev);
 
 public:
 	PMDModel(const char * filepath, ID3D12Device* _dev);
