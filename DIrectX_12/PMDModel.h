@@ -62,7 +62,7 @@ private:
 	std::vector<unsigned short> _indexData;
 	std::vector<PMDMaterial> _matData;
 
-	void InitModel(const char * filepath);
+	void InitModel(const char * filepath, ID3D12Device* _dev);
 	void InitMaterial(ID3D12Device* _dev);
 
 	//ƒ}ƒeƒŠƒAƒ‹
@@ -90,13 +90,18 @@ private:
 	std::vector<PMDbone> _bones;
 
 	//Toon
-	void InitToon(std::string path,ID3D12Device * _dev);
+	void InitToon(std::string path,ID3D12Device * _dev, size_t idx);
 
 	std::string toonfilepath;
-	std::vector<ID3D12Resource*> _ToonBuff;
+
 	ID3D12Resource* _gladTexBuff;
+
+	std::vector<ID3D12Resource*> _ToonBuff;
+
 	std::array<char[100], 10> toonTexNames;
+
 	std::string GetToonTexpathFromIndex(int idx, std::string folderpath);
+
 	void CreateGraduation(ID3D12Device* _dev);
 
 public:

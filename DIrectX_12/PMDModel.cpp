@@ -258,23 +258,22 @@ void PMDModel::CreateGraduation(ID3D12Device* _dev)
 	//size = (size + 0xff)&~0xff;
 
 	CD3DX12_HEAP_PROPERTIES hProp = {};
-	hProp.Type = D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_CUSTOM;
-	hProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	hProp.CreationNodeMask = 1;
-	hProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	hProp.VisibleNodeMask = 1;
+	hProp.Type					= D3D12_HEAP_TYPE::D3D12_HEAP_TYPE_CUSTOM;
+	hProp.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY::D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	hProp.CreationNodeMask		= 1;
+	hProp.MemoryPoolPreference	= D3D12_MEMORY_POOL_L0;
+	hProp.VisibleNodeMask		= 1;
 
 	CD3DX12_RESOURCE_DESC rDesc = {};
-	rDesc.Height = 256;
-	rDesc.Width = 4;
-	rDesc.SampleDesc.Count = 1;
-	rDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	rDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	rDesc.Format = DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
-	rDesc.DepthOrArraySize = 1;
-	rDesc.Layout = D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	//rDesc.
-	rDesc.MipLevels = 1;
+	rDesc.Height				= 256;
+	rDesc.Width					= 4;
+	rDesc.SampleDesc.Count		= 1;
+	rDesc.Dimension				= D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rDesc.Flags					= D3D12_RESOURCE_FLAG_NONE;
+	rDesc.Format				= DXGI_FORMAT::DXGI_FORMAT_R8G8B8A8_UNORM;
+	rDesc.DepthOrArraySize		= 1;
+	rDesc.Layout				= D3D12_TEXTURE_LAYOUT::D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	rDesc.MipLevels				= 1;
 
 	auto result = _dev->CreateCommittedResource(
 		&hProp,
@@ -290,85 +289,87 @@ void PMDModel::CreateGraduation(ID3D12Device* _dev)
 		Color(unsigned char inr, unsigned char ing, unsigned char inb, unsigned char ina)
 			:r(inr), g(ing), b(inb), a(ina) {};
 	};
+
 	std::vector<Color> cdata(4 * 256);
+
 	auto itr = cdata.begin();
+
 	unsigned char brightness(255);
+
 	for (; itr != cdata.end(); itr += 4) {
 		//00000000111111112222222233333333、みたいな感じのをつくる
 		std::fill_n(itr, 4, Color(brightness, brightness, brightness, 0xff));
 		--brightness;
 	}
+
 	result = _gladTexBuff->WriteToSubresource
 	(0, nullptr, cdata.data(), 4 * sizeof(Color), cdata.size() * sizeof(Color));
 }
 
-void PMDModel::InitToon(std::string path, ID3D12Device * _dev) {
+void PMDModel::InitToon(std::string path, ID3D12Device * _dev, size_t idx) {
 	
 	_ToonBuff.resize(_matData.size());
 
-	for (int i = 0; i < _matData.size(); i++) {
 
-		TexMetadata metadata = {};
-		ScratchImage scratchimg = {};
+	TexMetadata metadata = {};
+	ScratchImage scratchimg = {};
 
-		_ToonBuff[i] = _gladTexBuff;
+	_ToonBuff[idx] = _gladTexBuff;
 
-		auto toonpath = StringToWStirng(toonfilepath);
+	auto toonpath = StringToWStirng(toonfilepath);
 		
-		auto result = LoadFromWICFile(
-			toonpath.c_str(),
-			WIC_FLAGS_NONE,
-			&metadata,
-			scratchimg);
+	auto result = LoadFromWICFile(
+		toonpath.c_str(),
+		WIC_FLAGS_NONE,
+		&metadata,
+		scratchimg);
 		
-		D3D12_HEAP_PROPERTIES heapprop = {};
-		heapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
-		heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-		heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-		heapprop.CreationNodeMask = 0;
-		heapprop.VisibleNodeMask = 0;
+	D3D12_HEAP_PROPERTIES heapprop = {};
+	heapprop.Type					= D3D12_HEAP_TYPE_CUSTOM;
+	heapprop.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	heapprop.MemoryPoolPreference	= D3D12_MEMORY_POOL_L0;
+	heapprop.CreationNodeMask		= 0;
+	heapprop.VisibleNodeMask		= 0;
 
-		//テクスチャデスク
-		D3D12_RESOURCE_DESC texDesc = {};
-		texDesc.Alignment = 0;									//先頭からなので0
-		texDesc.DepthOrArraySize = metadata.arraySize;					//リソースが2Dで配列でもないので１
-		texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;	//何次元テクスチャか(TEXTURE2D)
-		texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;				//NONE
-		texDesc.Format = metadata.format;						//例によって
-		texDesc.Width = metadata.width;						//テクスチャ幅
-		texDesc.Height = metadata.height;						//テクスチャ高さ
-		texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;			//決定できないのでUNKNOWN
-		texDesc.MipLevels = metadata.mipLevels;					//ミップ使ってないので0
-		texDesc.SampleDesc.Count = 1;
-		texDesc.SampleDesc.Quality = 0;
+	//テクスチャデスク
+	D3D12_RESOURCE_DESC texDesc = {};
+	texDesc.Alignment			= 0;									//先頭からなので0
+	texDesc.DepthOrArraySize	= metadata.arraySize;					//リソースが2Dで配列でもないので１
+	texDesc.Dimension			= D3D12_RESOURCE_DIMENSION_TEXTURE2D;	//何次元テクスチャか(TEXTURE2D)
+	texDesc.Flags				= D3D12_RESOURCE_FLAG_NONE;				//NONE
+	texDesc.Format				= metadata.format;						//例によって
+	texDesc.Width				= metadata.width;						//テクスチャ幅
+	texDesc.Height				= metadata.height;						//テクスチャ高さ
+	texDesc.Layout				= D3D12_TEXTURE_LAYOUT_UNKNOWN;			//決定できないのでUNKNOWN
+	texDesc.MipLevels			= metadata.mipLevels;					//ミップ使ってないので0
+	texDesc.SampleDesc.Count	= 1;
+	texDesc.SampleDesc.Quality	= 0;
 
-		ID3D12Resource* tmpbuff = nullptr;
+	ID3D12Resource* tmpbuff = nullptr;
 
-		auto result = _dev->CreateCommittedResource(
-			&heapprop,
-			D3D12_HEAP_FLAG_NONE,
-			&texDesc,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-			nullptr,
-			IID_PPV_ARGS(&tmpbuff));
+	result = _dev->CreateCommittedResource(
+		&heapprop,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		nullptr,
+		IID_PPV_ARGS(&tmpbuff));
 
-		result = tmpbuff->WriteToSubresource(
-			0,
-			nullptr,
-			scratchimg.GetPixels(),
-			metadata.width * 4,
-			scratchimg.GetPixelsSize());
+	result = tmpbuff->WriteToSubresource(
+		0,
+		nullptr,
+		scratchimg.GetPixels(),
+		metadata.width * 4,
+		scratchimg.GetPixelsSize());
 
-		
-		_TexBuff[i] = tmpbuff;
+	_ToonBuff[idx] = tmpbuff;
 
-		scratchimg.Release();
-	}
+	scratchimg.Release();
 }
 
 PMDModel::PMDModel(const char * filepath, ID3D12Device* _dev)
 {
-	InitModel(filepath);
+	InitModel(filepath, _dev);
 	CreateWhiteTexture(_dev);
 	CreateBlackTexture(_dev);
 	CreatModelTex(_dev);
@@ -400,7 +401,7 @@ ID3D12DescriptorHeap*& PMDModel::GetMatHeap()
 	return _matHeap;
 }
 
-void PMDModel::InitModel(const char * filepath)
+void PMDModel::InitModel(const char * filepath, ID3D12Device* _dev)
 {
 	FILE *fp;
 
@@ -507,6 +508,10 @@ void PMDModel::InitModel(const char * filepath)
 	auto folder = GetTexPath(filepath);
 
 	for (auto &mat : _matData) {
+		if (mat.toon_index != 0xff) {
+			toonfilepath = GetToonTexpathFromIndex(mat.toon_index, folder);
+			InitToon(toonfilepath, _dev, idx);
+		}
 		if (std::strlen(mat.texture_file_name) > 0) {
 			_texturePaths[idx] = folder + GetTexAstPath(mat.texture_file_name);
 		}
@@ -562,7 +567,7 @@ void PMDModel::InitMaterial(ID3D12Device * _dev)
 	D3D12_DESCRIPTOR_HEAP_DESC matHeapDesc = {};
 	matHeapDesc.Flags					= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	matHeapDesc.NodeMask				= 0;
-	matHeapDesc.NumDescriptors			= pMat.size() * 4;
+	matHeapDesc.NumDescriptors			= pMat.size() * 5;
 	matHeapDesc.Type					= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	auto result = _dev->CreateDescriptorHeap(&matHeapDesc, IID_PPV_ARGS(&_matHeap));
@@ -585,15 +590,23 @@ void PMDModel::InitMaterial(ID3D12Device * _dev)
 		srvDesc.Texture2D.MipLevels		= 1;
 
 		//t1
+		srvDesc.Format = _TexBuff[i]->GetDesc().Format;
 		_dev->CreateShaderResourceView(_TexBuff[i], &srvDesc, matH);
 		matH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 		//t2のシェーダリソースビュー(sph)
+		srvDesc.Format = _TexBuffsph[i]->GetDesc().Format;
 		_dev->CreateShaderResourceView(_TexBuffsph[i], &srvDesc, matH);
 		matH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 		//t3のシェーダリソースビュー(spa)
+		srvDesc.Format = _TexBuffspa[i]->GetDesc().Format;
 		_dev->CreateShaderResourceView(_TexBuffspa[i], &srvDesc, matH);
+		matH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		
+		//t4のシェーダリソースビュー(toon)
+		srvDesc.Format = _ToonBuff[i]->GetDesc().Format;
+		_dev->CreateShaderResourceView(_ToonBuff[i], &srvDesc, matH);
 		matH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	}
 }

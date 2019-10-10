@@ -184,20 +184,26 @@ void Wrapper::InitShader()
 void Wrapper::InitRootSignature()
 {
 	//サンプラ
-	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
-	samplerDesc.AddressU				= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc.AddressV				= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc.AddressW				= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	samplerDesc.BorderColor				= D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;//エッジの色
-	samplerDesc.Filter					= D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
-	samplerDesc.MaxLOD					= D3D12_FLOAT32_MAX;
-	samplerDesc.MinLOD					= 0.0f;
-	samplerDesc.MipLODBias				= 0.0f;
-	samplerDesc.ShaderRegister			= 0;
-	samplerDesc.ShaderVisibility		= D3D12_SHADER_VISIBILITY_ALL;//どのくらいシェーダに見せるか
-	samplerDesc.RegisterSpace			= 0;
-	samplerDesc.MaxAnisotropy			= 0;
-	samplerDesc.ComparisonFunc			= D3D12_COMPARISON_FUNC_NEVER;
+	D3D12_STATIC_SAMPLER_DESC samplerDesc[2] = {};
+	samplerDesc[0].AddressU				= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].AddressV				= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].AddressW				= D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].BorderColor				= D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;//エッジの色
+	samplerDesc[0].Filter					= D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
+	samplerDesc[0].MaxLOD					= D3D12_FLOAT32_MAX;
+	samplerDesc[0].MinLOD					= 0.0f;
+	samplerDesc[0].MipLODBias				= 0.0f;
+	samplerDesc[0].ShaderRegister			= 0;
+	samplerDesc[0].ShaderVisibility		= D3D12_SHADER_VISIBILITY_ALL;//どのくらいシェーダに見せるか
+	samplerDesc[0].RegisterSpace			= 0;
+	samplerDesc[0].MaxAnisotropy			= 0;
+	samplerDesc[0].ComparisonFunc			= D3D12_COMPARISON_FUNC_NEVER;
+
+	samplerDesc[1] = samplerDesc[0];
+	samplerDesc[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].ShaderRegister = 1;
 	
 	ID3DBlob* signature = nullptr;//ID3D12Blob=メモリオブジェクト
 	ID3DBlob* error = nullptr;
@@ -218,9 +224,9 @@ void Wrapper::InitRootSignature()
 	descTblRange[1].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	descTblRange[1].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	//テクスチャ用バッファ(SRV)
+	//テクスチャ用バッファ(SRV){基本、sph、spa、toon}
 	descTblRange[2].BaseShaderRegister					= 0;//レジスタ番号
-	descTblRange[2].NumDescriptors						= 3;
+	descTblRange[2].NumDescriptors						= 4;
 	descTblRange[2].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblRange[2].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
@@ -241,9 +247,9 @@ void Wrapper::InitRootSignature()
 	D3D12_ROOT_SIGNATURE_DESC rsd = {};
 	rsd.Flags				= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsd.pParameters			= rootParam;
-	rsd.pStaticSamplers		= &samplerDesc;
+	rsd.pStaticSamplers		= samplerDesc;
 	rsd.NumParameters		= 2;
-	rsd.NumStaticSamplers	= 1;
+	rsd.NumStaticSamplers	= 2;
 
 	auto result = D3D12SerializeRootSignature(
 		&rsd,
@@ -602,11 +608,14 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	_camera.reset(new Camera(_dev));
 
-	const char* cfilepath = ("Model/初音ミク.pmd");
+	//const char* cfilepath = ("Model/初音ミク.pmd");
+	//const char* cfilepath = ("Model/巡音ルカ.pmd");
+	const char* cfilepath = ("Model/初音ミクmetal.pmd");
 	//const char* cfilepath = ("Model/巡音ルカ.pmd");
 	//const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
 	//const char* cfilepath = ("Model/hibiki/我那覇響v1.pmd");
 	//const char* cfilepath = ("Model/hibari/雲雀Ver1.10.pmd");
+	//const char* cfilepath = ("Model/博麗霊夢/reimu_F01.pmd");
 
 	_model.reset(new PMDModel(cfilepath,_dev));
 
@@ -689,7 +698,7 @@ void Wrapper::Update()
 	auto mathandle = _model->GetMatHeap()->GetGPUDescriptorHandleForHeapStart();
 
 	auto incriment_size = 
-		_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 4;
+		_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 5;
 	
 	for (auto& m : _model->GetmatData()) {
 		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);
