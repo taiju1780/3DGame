@@ -54,6 +54,23 @@ struct PMDbone {
 	DirectX::XMFLOAT3 bone_head_pos;		// x, y, z // ボーンのヘッドの位置
 };
 
+struct BoneNode {
+	int boneidx;
+	DirectX::XMFLOAT3 startPos;//ボーン始点
+	DirectX::XMFLOAT3 endPos;//ボーン始点
+	std::vector<BoneNode*> children;
+};
+
+struct VMD_MOTION {						// 111 Bytes // モーション
+	char BoneName[15];					// ボーン名
+	unsigned int FlameNo;				// フレーム番号(読込時は現在のフレーム位置を0とした相対位置)
+	float Location[3];					// 位置
+	DirectX::XMFLOAT4 quaternion;		// Quaternion // 回転
+	unsigned char Interpolation[64];	// [4][4][4] // 補完
+	DirectX::XMFLOAT2 bz1;				//ベジェ係数1
+	DirectX::XMFLOAT2 bz2;				//ベジェ係数2
+};
+
 class PMDModel
 {
 private:
@@ -68,7 +85,7 @@ private:
 	//マテリアル
 	std::vector<ID3D12Resource*> _matBuffs;
 	PMDColor* mappedColor = nullptr;
-	ID3D12DescriptorHeap* _matHeap;
+	ID3D12DescriptorHeap* _matHeap = nullptr;
 
 	std::wstring StringToWStirng(const std::string& str);
 
@@ -80,21 +97,35 @@ private:
 	std::vector<ID3D12Resource*> _TexBuffspa;
 	std::vector<ID3D12Resource*> _TexBuffsph;
 
-	ID3D12Resource* _whiteTexbuff;
-	ID3D12Resource* _blackTexbuff;
+	ID3D12Resource* _whiteTexbuff = nullptr;
+	ID3D12Resource* _blackTexbuff = nullptr;
 
 	void CreateWhiteTexture(ID3D12Device* _dev);
 	void CreateBlackTexture(ID3D12Device* _dev);
 
 	//born
 	std::vector<PMDbone> _bones;
+	std::vector<DirectX::XMMATRIX> _boneMatrices;//ボーン行列転送用
+	std::map<std::string, BoneNode> _boneMap;//探すためのマップ
+	
+	void InitBone(ID3D12Device* _dev);
+	void RotationBone(const std::string & boneName, const DirectX::XMFLOAT4& q1, const DirectX::XMFLOAT4& q2, float t);
+	
+	ID3D12Resource* _boneBuffer = nullptr;
+	ID3D12DescriptorHeap* _boneHeap = nullptr;
+	DirectX::XMMATRIX* mappedBoneMat;
+
+	//モーション
+	void InitMotion(const char* filepath, const char* cfilepath, ID3D12Device* _dev);
+
+	std::vector<VMD_MOTION> _motions;
 
 	//Toon
 	void InitToon(std::string path,ID3D12Device * _dev, size_t idx);
 
 	std::string toonfilepath;
 
-	ID3D12Resource* _gladTexBuff;
+	ID3D12Resource* _gladTexBuff = nullptr;
 
 	std::vector<ID3D12Resource*> _ToonBuff;
 
@@ -107,11 +138,11 @@ private:
 public:
 	PMDModel(const char * filepath, ID3D12Device* _dev);
 	~PMDModel();
-
+	void Update();
 	std::vector<PMDvertex> GetverticesData();
 	std::vector<unsigned short> GetindexData();
 	std::vector<PMDMaterial> GetmatData();
 	ID3D12DescriptorHeap*& GetMatHeap();
-
+	ID3D12DescriptorHeap*& GetBoneHeap();
 };
 

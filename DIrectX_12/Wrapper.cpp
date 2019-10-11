@@ -208,8 +208,8 @@ void Wrapper::InitRootSignature()
 	ID3DBlob* signature = nullptr;//ID3D12Blob=メモリオブジェクト
 	ID3DBlob* error = nullptr;
 
-	D3D12_DESCRIPTOR_RANGE descTblRange[3] = {};
-	D3D12_ROOT_PARAMETER rootParam[2] = {};
+	D3D12_DESCRIPTOR_RANGE descTblRange[4] = {};
+	D3D12_ROOT_PARAMETER rootParam[3] = {};
 
 	//デスクリプタレンジの設定
 	//座標変換定数バッファ
@@ -230,6 +230,12 @@ void Wrapper::InitRootSignature()
 	descTblRange[2].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblRange[2].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	//ボーン用定数バッファ
+	descTblRange[3].BaseShaderRegister					= 2;//レジスタ番号
+	descTblRange[3].NumDescriptors						= 1;
+	descTblRange[3].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descTblRange[3].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	//paramの設定
 	//座標変換
 	rootParam[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -242,13 +248,19 @@ void Wrapper::InitRootSignature()
 	rootParam[1].ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
 	rootParam[1].DescriptorTable.NumDescriptorRanges	= 2;
 	rootParam[1].DescriptorTable.pDescriptorRanges		= &descTblRange[1];
+
+	//ボーン用
+	rootParam[2].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[2].ShaderVisibility						= D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParam[2].DescriptorTable.NumDescriptorRanges	= 1;
+	rootParam[2].DescriptorTable.pDescriptorRanges		= &descTblRange[3];
 	
 	//ルートシグネチャ
 	D3D12_ROOT_SIGNATURE_DESC rsd = {};
 	rsd.Flags				= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsd.pParameters			= rootParam;
 	rsd.pStaticSamplers		= samplerDesc;
-	rsd.NumParameters		= 2;
+	rsd.NumParameters		= 3;
 	rsd.NumStaticSamplers	= 2;
 
 	auto result = D3D12SerializeRootSignature(
@@ -297,6 +309,26 @@ void Wrapper::InitPipeline()
 			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
 			0
 		},	
+
+		{
+			"BONENO",
+			0,
+			DXGI_FORMAT_R16G16_UINT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0
+		},
+
+		{
+			"WEIGHT",
+			0,
+			DXGI_FORMAT_R8_UINT,
+			0,
+			D3D12_APPEND_ALIGNED_ELEMENT ,
+			D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
+			0 
+		}
 	};
 
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
@@ -610,9 +642,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	//const char* cfilepath = ("Model/初音ミク.pmd");
 	//const char* cfilepath = ("Model/巡音ルカ.pmd");
-	const char* cfilepath = ("Model/初音ミクmetal.pmd");
-	//const char* cfilepath = ("Model/巡音ルカ.pmd");
-	//const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
+	//const char* cfilepath = ("Model/初音ミクmetal.pmd");
+	const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
 	//const char* cfilepath = ("Model/hibiki/我那覇響v1.pmd");
 	//const char* cfilepath = ("Model/hibari/雲雀Ver1.10.pmd");
 	//const char* cfilepath = ("Model/博麗霊夢/reimu_F01.pmd");
@@ -641,6 +672,8 @@ void Wrapper::Update()
 {
 	unsigned char keyState[256];
 	_camera->CameraUpdate(keyState);
+
+	_model->Update();
 
 	auto heapStart = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
 	float clearColor[] = { 0.8f,0.8f,0.8f,1.0f };
@@ -683,6 +716,10 @@ void Wrapper::Update()
 	//CBVデスクリプタヒープ設定
 	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
 	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
+
+	//ボーンヒープセット
+	_cmdList->SetDescriptorHeaps(1, &_model->GetBoneHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(2, _model->GetBoneHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	//頂点セット
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

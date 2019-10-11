@@ -39,7 +39,7 @@ void Camera::InitConstants(ID3D12Device* dev)
 
 	//カメラ設定
 	XMFLOAT3 eye(0, 18, -15);//視点
-	XMFLOAT3 target(0, 10, 0);//注視点
+	XMFLOAT3 target(0, 12, 0);//注視点
 	XMFLOAT3 up(0, 1, 0);//上ベクトル
 
 	//ベクトル変換
@@ -97,6 +97,7 @@ void Camera::InitConstants(ID3D12Device* dev)
 void Camera::CameraUpdate(unsigned char keyState[])
 {
 	if (GetKeyboardState(keyState)) {
+		//カメラ回転
 		if (keyState['A'] & 0x80)
 		{
 			anglex = 0.005f;
@@ -107,17 +108,20 @@ void Camera::CameraUpdate(unsigned char keyState[])
 			anglex = -0.005f;
 			_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
 		}
-		if (keyState['W'] & 0x80)
+
+		//座標回転
+		if (keyState['L'] & 0x80)
 		{
 			anglex = 0.005f;
-			_wvp._view = DirectX::XMMatrixRotationX(angley) * _wvp._view;	// 回転
+			_wvp._world = DirectX::XMMatrixRotationY(anglex) * _wvp._world;
 		}
-		if (keyState['S'] & 0x80)
+		if (keyState['J'] & 0x80)
 		{
 			anglex = -0.005f;
-			_wvp._view = DirectX::XMMatrixRotationX(angley) * _wvp._view;	// 回転
+			_wvp._world = DirectX::XMMatrixRotationY(anglex) * _wvp._world;	
 		}
 	}
+	
 
 	_wvp._wvp = _wvp._world;
 	_wvp._wvp *= _wvp._view;

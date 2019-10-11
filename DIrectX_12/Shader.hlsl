@@ -28,6 +28,8 @@ struct Out
     float4 svpos : SV_POSITION;
     float2 uv : TEXCOORD;
     float3 normal : NORMAL;
+    float2 boneno : BONENO;
+    float weight : WEIGHT;
 };
 
 //定数レジスタ１
@@ -40,14 +42,16 @@ cbuffer Material : register(b1)
 }
 
 //頂点シェーダ
-Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL)
+Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, float2 boneno : BONENO, float weight : WEIGHT)
 {
     Out o;
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(wvp, float4(pos, 1));
     o.uv = uv;
-    normal = mul(view, float4(normal, 1));
+    normal = mul(world, float4(normal, 1));
     o.normal = normal;
+    o.boneno = boneno;
+    o.weight = weight;
 
     return o;
 }
@@ -56,7 +60,7 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL)
 float4 ps(Out o) : SV_Target
 {
      //視線
-    float3 eye = float3(0, 18, -15);
+    float3 eye = float3(0, 18, -20);
 
     //視線ベクトル
     float3 ray = o.pos.xyz - eye;
@@ -71,7 +75,7 @@ float4 ps(Out o) : SV_Target
     light = normalize(light);
     float diffuseB = saturate(dot(-light, o.normal));
 
-    //光の反射
+    //光の反射(拡散反射)
     float3 mirror = normalize(reflect(light, o.normal.xyz));
     float spec = pow(saturate(dot(mirror, -ray)), specular.a);
 
@@ -84,19 +88,14 @@ float4 ps(Out o) : SV_Target
     //toon
     float4 toonDif = toon.Sample(toonsmp, float2(0, 1.0 - diffuseB));
     
-    //return saturate(
-    //                toonDif
-    //                * diffuse
-    //                * tex.Sample(smp, o.uv)
-    //                + texColor)
-    //                + saturate(float4(spec * specular.rgb, 1))
-    //                + float4(texColor.rgb * ambient * 0.5, 1);
     return saturate(
             toonDif
             * diffuse
             * tex.Sample(smp, o.uv)
             * sph.Sample(smp, normalUV))
-            + float4(spec * specular.rgb, 1) 
-            + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.3, 1);
+            + saturate(float4(spec * specular.rgb, 1))
+            + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
+
+    //return float4((float2) (o.boneno % 2), 0,1);
 
 }
