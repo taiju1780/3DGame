@@ -214,16 +214,16 @@ void PMDModel::CreateBlackTexture(ID3D12Device* _dev)
 
 	//テクスチャデスク
 	D3D12_RESOURCE_DESC WtexDesc = {};
-	WtexDesc.Alignment = 0;									//先頭からなので0
-	WtexDesc.DepthOrArraySize = 1;									//リソースが2Dで配列でもないので１
-	WtexDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;	//何次元テクスチャか(TEXTURE2D)
-	WtexDesc.Flags = D3D12_RESOURCE_FLAG_NONE;			//NONE
-	WtexDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;			//例によって
-	WtexDesc.Width = 4;									//テクスチャ幅
-	WtexDesc.Height = 4;									//テクスチャ高さ
-	WtexDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;		//決定できないのでUNKNOWN
-	WtexDesc.MipLevels = 1;									//ミップ使ってないので0
-	WtexDesc.SampleDesc.Count = 1;
+	WtexDesc.Alignment			= 0;										//先頭からなので0
+	WtexDesc.DepthOrArraySize	= 1;										//リソースが2Dで配列でもないので１
+	WtexDesc.Dimension			= D3D12_RESOURCE_DIMENSION_TEXTURE2D;		//何次元テクスチャか(TEXTURE2D)
+	WtexDesc.Flags				= D3D12_RESOURCE_FLAG_NONE;					//NONE
+	WtexDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;				//例によって
+	WtexDesc.Width				= 4;										//テクスチャ幅
+	WtexDesc.Height				= 4;										//テクスチャ高さ
+	WtexDesc.Layout				= D3D12_TEXTURE_LAYOUT_UNKNOWN;				//決定できないのでUNKNOWN
+	WtexDesc.MipLevels			= 1;										//ミップ使ってないので0
+	WtexDesc.SampleDesc.Count	= 1;
 	WtexDesc.SampleDesc.Quality = 0;
 
 	auto result = _dev->CreateCommittedResource(
@@ -306,7 +306,7 @@ void PMDModel::CreateGraduation(ID3D12Device* _dev)
 	(0, nullptr, cdata.data(), 4 * sizeof(Color), cdata.size() * sizeof(Color));
 }
 
-void PMDModel::InitMotion(const char* filepath, const char* cfilepath, ID3D12Device* _dev)
+void PMDModel::InitMotion(const char* filepath, ID3D12Device* _dev)
 {
 	FILE* fp;
 	fopen_s(&fp, filepath, "rb");
@@ -317,27 +317,92 @@ void PMDModel::InitMotion(const char* filepath, const char* cfilepath, ID3D12Dev
 
 	_motions.resize(Vnum);
 
-	char BoneName[15];					// ボーン名
-	unsigned int FlameNo;				// フレーム番号(読込時は現在のフレーム位置を0とした相対位置)
-	float Location[3];					// 位置
-	DirectX::XMFLOAT4 quaternion;		// Quaternion // 回転
-	unsigned char Interpolation[64];	// [4][4][4] // 補完
-	DirectX::XMFLOAT2 bz1;				//ベジェ係数1
-	DirectX::XMFLOAT2 bz2;				//ベジェ係数2
-
-	for (auto _m : _motions) {
+	for (auto &_m : _motions) {
 		fread(&_m.BoneName, sizeof(_m.BoneName), 1, fp);
 		fread(&_m.FlameNo, sizeof(_m.FlameNo), 1, fp);
 		fread(&_m.Location, sizeof(_m.Location), 1, fp);
 		fread(&_m.quaternion, sizeof(_m.quaternion), 1, fp);
 		fread(&_m.Interpolation, sizeof(_m.Interpolation), 1, fp);
-		fread(&_m.bz1, sizeof(_m.bz1), 1, fp);
-		fread(&_m.bz2, sizeof(_m.bz2), 1, fp);
 	}
 
 	std::sort(_motions.begin(), _motions.end(), [](VMD_MOTION&a, VMD_MOTION&b) {return a.FlameNo < b.FlameNo; });
 
+	for (auto &f : _motions) {
+		auto& interpolation = f.Interpolation;
+		auto ax = interpolation[48];
+		auto ay = interpolation[52];
+		auto bx = interpolation[56];
+		auto by = interpolation[60];
+		f.bz1 = DirectX::XMFLOAT2(static_cast<float>(ax) / 127.f, static_cast<float>(ay) / 127.f);
+		f.bz2 = DirectX::XMFLOAT2(static_cast<float>(bx) / 127.f, static_cast<float>(by) / 127.f);
+		_animation[f.BoneName].emplace_back(f);
+		duration = max(f.FlameNo, duration);
+	}
+	fclose(fp);
+}
 
+float PMDModel::CreatBezier(float x, const DirectX::XMFLOAT2 & a, const DirectX::XMFLOAT2 & b, const unsigned int n)
+{
+	if (a.x == a.y && b.x == b.y)return x;	//この場合式は直線なのでｘをかえす
+
+	float t = x;							//はじめはtはｘと同じでよい
+
+	float k0 = 1 + 3 * a.x - 3 * b.x;		//係数０
+
+	float k1 = 3 * b.x - 6 * a.x;			//係数１
+
+	float k2 = 3 * a.x;						//係数２
+
+	const float epsilon = 0.0005f;			//誤差の範囲
+
+	for (int i = 0; i < n; i++) {
+
+		float r = (1 - t);
+
+		float ft = (t*t*t)*k0 + (t*t)*k1 + t * k2 - x;		//f(t)高さを求める
+
+		if (ft <= epsilon && ft >= epsilon)break;			//誤差の範囲内なら打ち切る
+
+		float fdt = 3 * (t*t) * k0 + 2 * t * k1 + 3 * k2;	//f'tのこと,ftの微分結果
+
+		if (fdt == 0)break;									//0徐算の場合打ち切る
+
+		t = t - ft / fdt;									//ニュートン法により答えを近づけていく
+	}
+	float r = (1 - t);
+	//tが求まったのでyを計算していく
+	return (3 * r * r * t * a.y) + (3 * r * t * t * b.y) + (t * t * t);
+}
+
+void PMDModel::RecursiveMatrixMultiply(BoneNode & node, DirectX::XMMATRIX & inMat)
+{
+	_boneMatrices[node.boneidx] *= inMat;
+	for (auto &bnode : node.children) {
+		RecursiveMatrixMultiply(*bnode, _boneMatrices[node.boneidx]);
+	}
+}
+
+void PMDModel::MotionUpdate(int flameNo)
+{
+	for (auto &anim : _animation) {
+		auto &keyflames = anim.second;
+		auto flameIt = std::find_if(keyflames.rbegin(), keyflames.rend(), [flameNo](const VMD_MOTION& motion) {return motion.FlameNo <= flameNo; });
+		if (flameIt == keyflames.rend())continue;
+		auto nextIt = flameIt.base();
+		if (nextIt == keyflames.end()) {
+			RotationBone(anim.first.c_str(), flameIt->quaternion);
+		}
+		else {
+			auto a = flameIt->FlameNo;
+			auto b = nextIt->FlameNo;
+			auto t = (static_cast<float>(flameNo) - a) / (a - b);
+			t = CreatBezier(t, nextIt->bz1, nextIt->bz2);
+			RotationBone(anim.first.c_str(), flameIt->quaternion, nextIt->quaternion, t);
+		}
+	}
+	//ツリーをトラバース
+	XMMATRIX rootmat = XMMatrixIdentity();
+	RecursiveMatrixMultiply(_boneMap["センター"], rootmat);
 }
 
 void PMDModel::InitToon(std::string path, ID3D12Device * _dev, size_t idx) {
@@ -442,6 +507,11 @@ ID3D12DescriptorHeap *& PMDModel::GetBoneHeap()
 	return _boneHeap;
 }
 
+const unsigned int PMDModel::Duration()
+{
+	return duration + 30;
+}
+
 void PMDModel::InitModel(const char * filepath, ID3D12Device* _dev)
 {
 	FILE *fp;
@@ -535,7 +605,7 @@ void PMDModel::InitModel(const char * filepath, ID3D12Device* _dev)
 	if (englishFlg) {								//モデル名20バイト+256バイトコメント
 		fseek(fp, 20 + 256, SEEK_CUR);				//ボーン名20バイト*ボーン数
 		fseek(fp, boneNum * 20, SEEK_CUR);			//(表情数-1)*20バイト。-1なのはベース部分ぶん
-		fseek(fp, (skinNum - 1) * 20, SEEK_CUR);		//ボーン数*50バイト。
+		fseek(fp, (skinNum - 1) * 20, SEEK_CUR);	//ボーン数*50バイト。
 		fseek(fp, boneDispNum * 50, SEEK_CUR);
 	}
 
@@ -672,8 +742,10 @@ void PMDModel::InitBone(ID3D12Device* _dev) {
 	}
 
 	for (auto& b : _boneMap) {
+		//次のボーンを見る
 		if (mbones[b.second.boneidx].parent_bone_index >= mbones.size())continue;
 		auto parentName = mbones[mbones[b.second.boneidx].parent_bone_index].bone_name;
+		//親のボーンを検索して自分をプッシュする
 		_boneMap[parentName].children.push_back(&b.second);
 	}
 
@@ -704,6 +776,7 @@ void PMDModel::InitBone(ID3D12Device* _dev) {
 
 	_boneBuffer->Map(0, nullptr, (void**)&mappedBoneMat);
 	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
+	_boneBuffer->Unmap(0, nullptr);
 }
 
 void PMDModel::RotationBone(const std::string & boneName, const DirectX::XMFLOAT4 & q1, const DirectX::XMFLOAT4 & q2, float t)
@@ -722,8 +795,12 @@ void PMDModel::RotationBone(const std::string & boneName, const DirectX::XMFLOAT
 }
 
 void PMDModel::Update() {
+	flame++;
+	flame %= Duration() * 2;
 
+	//初期化
 	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
+	MotionUpdate(flame / 2);
 	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
 }
 

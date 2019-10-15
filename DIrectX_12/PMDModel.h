@@ -109,16 +109,22 @@ private:
 	std::map<std::string, BoneNode> _boneMap;//探すためのマップ
 	
 	void InitBone(ID3D12Device* _dev);
-	void RotationBone(const std::string & boneName, const DirectX::XMFLOAT4& q1, const DirectX::XMFLOAT4& q2, float t);
+	void RotationBone(const std::string& boneName, const DirectX::XMFLOAT4& puaternion, const DirectX::XMFLOAT4& puaternion2 = DirectX::XMFLOAT4(), float t = 0.0f);
 	
 	ID3D12Resource* _boneBuffer = nullptr;
 	ID3D12DescriptorHeap* _boneHeap = nullptr;
 	DirectX::XMMATRIX* mappedBoneMat;
 
 	//モーション
-	void InitMotion(const char* filepath, const char* cfilepath, ID3D12Device* _dev);
 
 	std::vector<VMD_MOTION> _motions;
+	std::map<std::string, std::vector<VMD_MOTION>> _animation;
+	void RecursiveMatrixMultiply(BoneNode& node, DirectX::XMMATRIX& inMat); //再起関数
+	
+	void MotionUpdate(int flameNo);
+	float CreatBezier(float x, const DirectX::XMFLOAT2 & a, const DirectX::XMFLOAT2 & b, const unsigned int n = 16);
+	unsigned int duration = 0;
+	unsigned int flame;
 
 	//Toon
 	void InitToon(std::string path,ID3D12Device * _dev, size_t idx);
@@ -144,5 +150,8 @@ public:
 	std::vector<PMDMaterial> GetmatData();
 	ID3D12DescriptorHeap*& GetMatHeap();
 	ID3D12DescriptorHeap*& GetBoneHeap();
+
+	const unsigned int Duration();
+	void InitMotion(const char* filepath, ID3D12Device* _dev);
 };
 

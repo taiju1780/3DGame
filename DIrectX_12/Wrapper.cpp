@@ -642,13 +642,27 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	//const char* cfilepath = ("Model/初音ミク.pmd");
 	//const char* cfilepath = ("Model/巡音ルカ.pmd");
-	//const char* cfilepath = ("Model/初音ミクmetal.pmd");
-	const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
+	const char* cfilepath = ("Model/初音ミクmetal.pmd");
+	//const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
 	//const char* cfilepath = ("Model/hibiki/我那覇響v1.pmd");
 	//const char* cfilepath = ("Model/hibari/雲雀Ver1.10.pmd");
 	//const char* cfilepath = ("Model/博麗霊夢/reimu_F01.pmd");
 
+	//モーション(アクション)
+	//const char* mfilepath = ("Motion/pose.vmd");
+	const char* mfilepath = ("Motion/swing2.vmd");
+	//const char* mfilepath = ("Motion/charge.vmd.vmd");
+	//const char* mfilepath = ("Motion/first.vmd");
+
+	//モーション(ダンス)
+	//const char* mfilepath = ("Motion/ELECTモーション_小さめ身長用.vmd");
+	//const char* mfilepath = ("Motion/ストロボナイツモーション.vmd");
+	//const char* mfilepath = ("Motion/えれくとりっくえんじぇぅ.vmd");
+	//const char* mfilepath = ("Motion/ヤゴコロダンス.vmd");
+
 	_model.reset(new PMDModel(cfilepath,_dev));
+
+	_model->InitMotion(mfilepath,_dev);
 
 	InitModelVertices();
 	
