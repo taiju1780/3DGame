@@ -640,9 +640,9 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	_camera.reset(new Camera(_dev));
 
-	const char* cfilepath = ("Model/初音ミク.pmd");
+	//const char* cfilepath = ("Model/初音ミク.pmd");
 	//const char* cfilepath = ("Model/巡音ルカ.pmd");
-	//const char* cfilepath = ("Model/初音ミクmetal.pmd");
+	const char* cfilepath = ("Model/初音ミクmetal.pmd");
 	//const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
 	//const char* cfilepath = ("Model/hibiki/我那覇響v1.pmd");
 	//const char* cfilepath = ("Model/hibari/雲雀Ver1.10.pmd");

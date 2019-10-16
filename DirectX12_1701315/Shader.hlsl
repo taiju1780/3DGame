@@ -28,8 +28,8 @@ struct Out
     float4 svpos : SV_POSITION;
     float2 uv : TEXCOORD;
     float3 normal : NORMAL;
-    float2 boneno : BONENO;
-    float weight : WEIGHT;
+    min16uint2 boneno : BONENO;
+    min16uint weight : WEIGHT;
 };
 
 //定数レジスタ１
@@ -47,7 +47,7 @@ cbuffer Bones : register(b2)
 }
 
 //頂点シェーダ
-Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, float2 boneno : BONENO, float weight : WEIGHT)
+Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, min16uint2 boneno : BONENO, min16uint weight : WEIGHT)
 {
     Out o;
 
@@ -104,8 +104,7 @@ float4 ps(Out o) : SV_Target
             * tex.Sample(smp, o.uv)
             * sph.Sample(smp, normalUV))
             + saturate(float4(spec * specular.rgb, 1))
-            + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
+            + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.5, 1);
 
     //return float4((float2) (o.boneno % 2), 0,1);
-
 }
