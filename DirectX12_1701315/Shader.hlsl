@@ -41,10 +41,20 @@ cbuffer Material : register(b1)
     float3 ambient;
 }
 
+cbuffer Bones : register(b2)
+{
+    matrix boneMatrices[512];
+}
+
 //頂点シェーダ
 Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, float2 boneno : BONENO, float weight : WEIGHT)
 {
     Out o;
+
+    float w = weight / 100.0f;
+    matrix m = boneMatrices[boneno.x] * w + boneMatrices[boneno.y] * (1 - w);
+
+    pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(wvp, float4(pos, 1));
     o.uv = uv;

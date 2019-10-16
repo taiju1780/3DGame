@@ -57,7 +57,7 @@ struct PMDbone {
 struct BoneNode {
 	int boneidx;
 	DirectX::XMFLOAT3 startPos;//ボーン始点
-	DirectX::XMFLOAT3 endPos;//ボーン始点
+	//DirectX::XMFLOAT3 endPos;//ボーン始点
 	std::vector<BoneNode*> children;
 };
 
@@ -108,7 +108,6 @@ private:
 	std::vector<DirectX::XMMATRIX> _boneMatrices;//ボーン行列転送用
 	std::map<std::string, BoneNode> _boneMap;//探すためのマップ
 	
-	void InitBone(ID3D12Device* _dev);
 	void RotationBone(const std::string& boneName, const DirectX::XMFLOAT4& puaternion, const DirectX::XMFLOAT4& puaternion2 = DirectX::XMFLOAT4(), float t = 0.0f);
 	
 	ID3D12Resource* _boneBuffer = nullptr;
@@ -153,5 +152,6 @@ public:
 
 	const unsigned int Duration();
 	void InitMotion(const char* filepath, ID3D12Device* _dev);
+	void InitBone(ID3D12Device* _dev);
 };
 

@@ -194,7 +194,7 @@ void Wrapper::InitRootSignature()
 	samplerDesc[0].MinLOD					= 0.0f;
 	samplerDesc[0].MipLODBias				= 0.0f;
 	samplerDesc[0].ShaderRegister			= 0;
-	samplerDesc[0].ShaderVisibility		= D3D12_SHADER_VISIBILITY_ALL;//どのくらいシェーダに見せるか
+	samplerDesc[0].ShaderVisibility			= D3D12_SHADER_VISIBILITY_ALL;//どのくらいシェーダに見せるか
 	samplerDesc[0].RegisterSpace			= 0;
 	samplerDesc[0].MaxAnisotropy			= 0;
 	samplerDesc[0].ComparisonFunc			= D3D12_COMPARISON_FUNC_NEVER;
@@ -363,7 +363,7 @@ void Wrapper::InitPipeline()
 	gpsDesc.NodeMask				= 0;
 	gpsDesc.SampleDesc.Count		= 1;
 	gpsDesc.SampleDesc.Quality		= 0;
-	//gpsDesc.SampleMask				= 0xffffffff;
+	//gpsDesc.SampleMask			= 0xffffffff;
 	gpsDesc.SampleMask				= D3D12_COLOR_WRITE_ENABLE_ALL;
 	gpsDesc.PrimitiveTopologyType	= D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
@@ -640,17 +640,17 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	_camera.reset(new Camera(_dev));
 
-	//const char* cfilepath = ("Model/初音ミク.pmd");
+	const char* cfilepath = ("Model/初音ミク.pmd");
 	//const char* cfilepath = ("Model/巡音ルカ.pmd");
-	const char* cfilepath = ("Model/初音ミクmetal.pmd");
+	//const char* cfilepath = ("Model/初音ミクmetal.pmd");
 	//const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
 	//const char* cfilepath = ("Model/hibiki/我那覇響v1.pmd");
 	//const char* cfilepath = ("Model/hibari/雲雀Ver1.10.pmd");
 	//const char* cfilepath = ("Model/博麗霊夢/reimu_F01.pmd");
 
 	//モーション(アクション)
-	//const char* mfilepath = ("Motion/pose.vmd");
-	const char* mfilepath = ("Motion/swing2.vmd");
+	const char* mfilepath = ("Motion/pose.vmd");
+	//const char* mfilepath = ("Motion/swing2.vmd");
 	//const char* mfilepath = ("Motion/charge.vmd.vmd");
 	//const char* mfilepath = ("Motion/first.vmd");
 
@@ -663,6 +663,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	_model.reset(new PMDModel(cfilepath,_dev));
 
 	_model->InitMotion(mfilepath,_dev);
+
+	_model->InitBone(_dev);
 
 	InitModelVertices();
 	

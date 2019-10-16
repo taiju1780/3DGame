@@ -68,6 +68,16 @@ namespace {
 	}
 }
 
+PMDModel::PMDModel(const char * filepath, ID3D12Device* _dev)
+{
+	CreateGraduation(_dev);
+	InitModel(filepath, _dev);
+	CreateWhiteTexture(_dev);
+	CreateBlackTexture(_dev);
+	CreatModelTex(_dev);
+	InitMaterial(_dev);
+}
+
 void PMDModel::CreatModelTex(ID3D12Device * _dev)
 {
 	auto& _texturepath = _texturePaths;
@@ -308,21 +318,21 @@ void PMDModel::CreateGraduation(ID3D12Device* _dev)
 
 void PMDModel::InitMotion(const char* filepath, ID3D12Device* _dev)
 {
-	FILE* fp;
-	fopen_s(&fp, filepath, "rb");
-	fseek(fp, 50,SEEK_SET);//最初の５０は無駄データ
+	FILE* f;
+	fopen_s(&f, filepath, "rb");
+	fseek(f, 50,SEEK_SET);//最初の５０は無駄データ
 
 	unsigned int Vnum = 0;
-	fread(&Vnum, sizeof(Vnum),1, fp);
+	fread(&Vnum, sizeof(Vnum),1, f);
 
 	_motions.resize(Vnum);
 
 	for (auto &_m : _motions) {
-		fread(&_m.BoneName, sizeof(_m.BoneName), 1, fp);
-		fread(&_m.FlameNo, sizeof(_m.FlameNo), 1, fp);
-		fread(&_m.Location, sizeof(_m.Location), 1, fp);
-		fread(&_m.quaternion, sizeof(_m.quaternion), 1, fp);
-		fread(&_m.Interpolation, sizeof(_m.Interpolation), 1, fp);
+		fread(&_m.BoneName, sizeof(_m.BoneName), 1, f);
+		fread(&_m.FlameNo, sizeof(_m.FlameNo), 1, f);
+		fread(&_m.Location, sizeof(_m.Location), 1, f);
+		fread(&_m.quaternion, sizeof(_m.quaternion), 1, f);
+		fread(&_m.Interpolation, sizeof(_m.Interpolation), 1, f);
 	}
 
 	std::sort(_motions.begin(), _motions.end(), [](VMD_MOTION&a, VMD_MOTION&b) {return a.FlameNo < b.FlameNo; });
@@ -338,7 +348,7 @@ void PMDModel::InitMotion(const char* filepath, ID3D12Device* _dev)
 		_animation[f.BoneName].emplace_back(f);
 		duration = max(f.FlameNo, duration);
 	}
-	fclose(fp);
+	fclose(f);
 }
 
 float PMDModel::CreatBezier(float x, const DirectX::XMFLOAT2 & a, const DirectX::XMFLOAT2 & b, const unsigned int n)
@@ -386,7 +396,8 @@ void PMDModel::MotionUpdate(int flameNo)
 {
 	for (auto &anim : _animation) {
 		auto &keyflames = anim.second;
-		auto flameIt = std::find_if(keyflames.rbegin(), keyflames.rend(), [flameNo](const VMD_MOTION& motion) {return motion.FlameNo <= flameNo; });
+		auto flameIt = std::find_if(keyflames.rbegin(), keyflames.rend(), 
+			[flameNo](const VMD_MOTION& motion) {return motion.FlameNo <= flameNo; });
 		if (flameIt == keyflames.rend())continue;
 		auto nextIt = flameIt.base();
 		if (nextIt == keyflames.end()) {
@@ -395,7 +406,7 @@ void PMDModel::MotionUpdate(int flameNo)
 		else {
 			auto a = flameIt->FlameNo;
 			auto b = nextIt->FlameNo;
-			auto t = (static_cast<float>(flameNo) - a) / (a - b);
+			auto t = (static_cast<float>(flameNo) - a) / (b - a);
 			t = CreatBezier(t, nextIt->bz1, nextIt->bz2);
 			RotationBone(anim.first.c_str(), flameIt->quaternion, nextIt->quaternion, t);
 		}
@@ -424,25 +435,25 @@ void PMDModel::InitToon(std::string path, ID3D12Device * _dev, size_t idx) {
 			scratchimg);
 
 		D3D12_HEAP_PROPERTIES heapprop = {};
-		heapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
-		heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-		heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-		heapprop.CreationNodeMask = 0;
-		heapprop.VisibleNodeMask = 0;
+		heapprop.Type					= D3D12_HEAP_TYPE_CUSTOM;
+		heapprop.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+		heapprop.MemoryPoolPreference	= D3D12_MEMORY_POOL_L0;
+		heapprop.CreationNodeMask		= 0;
+		heapprop.VisibleNodeMask		= 0;
 
 		//テクスチャデスク
 		D3D12_RESOURCE_DESC texDesc = {};
-		texDesc.Alignment = 0;									//先頭からなので0
-		texDesc.DepthOrArraySize = metadata.arraySize;					//リソースが2Dで配列でもないので１
-		texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;	//何次元テクスチャか(TEXTURE2D)
-		texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;				//NONE
-		texDesc.Format = metadata.format;						//例によって
-		texDesc.Width = metadata.width;						//テクスチャ幅
-		texDesc.Height = metadata.height;						//テクスチャ高さ
-		texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;			//決定できないのでUNKNOWN
-		texDesc.MipLevels = metadata.mipLevels;					//ミップ使ってないので0
-		texDesc.SampleDesc.Count = 1;
-		texDesc.SampleDesc.Quality = 0;
+		texDesc.Alignment			= 0;									//先頭からなので0
+		texDesc.DepthOrArraySize	= metadata.arraySize;					//リソースが2Dで配列でもないので１
+		texDesc.Dimension			= D3D12_RESOURCE_DIMENSION_TEXTURE2D;	//何次元テクスチャか(TEXTURE2D)
+		texDesc.Flags				= D3D12_RESOURCE_FLAG_NONE;				//NONE
+		texDesc.Format				= metadata.format;						//例によって
+		texDesc.Width				= metadata.width;						//テクスチャ幅
+		texDesc.Height				= metadata.height;						//テクスチャ高さ
+		texDesc.Layout				= D3D12_TEXTURE_LAYOUT_UNKNOWN;			//決定できないのでUNKNOWN
+		texDesc.MipLevels			= metadata.mipLevels;					//ミップ使ってないので0
+		texDesc.SampleDesc.Count	= 1;
+		texDesc.SampleDesc.Quality	= 0;
 
 		ID3D12Resource* tmpbuff = nullptr;
 
@@ -466,17 +477,6 @@ void PMDModel::InitToon(std::string path, ID3D12Device * _dev, size_t idx) {
 		scratchimg.Release();
 	}
 }
-
-PMDModel::PMDModel(const char * filepath, ID3D12Device* _dev)
-{
-	InitModel(filepath, _dev);
-	CreateWhiteTexture(_dev);
-	CreateBlackTexture(_dev);
-	CreatModelTex(_dev);
-	InitMaterial(_dev);
-	InitBone(_dev);
-}
-
 
 PMDModel::~PMDModel()
 {
@@ -726,6 +726,7 @@ void PMDModel::InitMaterial(ID3D12Device * _dev)
 }
 
 void PMDModel::InitBone(ID3D12Device* _dev) {
+	flame = 30;
 	_boneMatrices.resize(_bones.size());
 
 	//単位行列を返す
@@ -734,11 +735,11 @@ void PMDModel::InitBone(ID3D12Device* _dev) {
 	//マップ情報を構築
 	auto& mbones = _bones;
 	for (int idx = 0; idx < mbones.size(); ++idx) {
-		auto& b = _bones[idx];
-		auto& boneNode = _boneMap[b.bone_name];
-		boneNode.boneidx = idx;
-		boneNode.startPos = b.bone_head_pos;
-		boneNode.endPos = mbones[b.tail_pos_bone_index].bone_head_pos;
+		auto& b				= _bones[idx];
+		auto& boneNode		= _boneMap[b.bone_name];
+		boneNode.boneidx	= idx;
+		boneNode.startPos	= b.bone_head_pos;
+		//boneNode.endPos		= mbones[b.tail_pos_bone_index].bone_head_pos;
 	}
 
 	for (auto& b : _boneMap) {
@@ -768,15 +769,15 @@ void PMDModel::InitBone(ID3D12Device* _dev) {
 	descHeapDesc.Type						= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&_boneHeap));
+
 	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-	desc.BufferLocation = _boneBuffer->GetGPUVirtualAddress();
-	desc.SizeInBytes = size;
-	auto handle = _boneHeap->GetCPUDescriptorHandleForHeapStart();
+	desc.BufferLocation		= _boneBuffer->GetGPUVirtualAddress();
+	desc.SizeInBytes		= size;
+	auto handle				= _boneHeap->GetCPUDescriptorHandleForHeapStart();
 	_dev->CreateConstantBufferView(&desc, handle);
 
-	_boneBuffer->Map(0, nullptr, (void**)&mappedBoneMat);
+	result = _boneBuffer->Map(0, nullptr, (void**)&mappedBoneMat);
 	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
-	_boneBuffer->Unmap(0, nullptr);
 }
 
 void PMDModel::RotationBone(const std::string & boneName, const DirectX::XMFLOAT4 & q1, const DirectX::XMFLOAT4 & q2, float t)
