@@ -2,6 +2,7 @@
 #include "Application.h"
 #include "Camera.h"
 #include "PMDModel.h"
+#include "PMXModel.h"
 #include <d3dcompiler.h>
 #include <DirectXTex.h>
 #include <stdio.h>
@@ -640,6 +641,9 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	_camera.reset(new Camera(_dev));
 
+	//PMDModel
+	//////////////////////////////////////////////////////////
+
 	//const char* cfilepath = ("Model/初音ミク.pmd");
 	//const char* cfilepath = ("Model/巡音ルカ.pmd");
 	const char* cfilepath = ("Model/初音ミクmetal.pmd");
@@ -648,9 +652,13 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	//const char* cfilepath = ("Model/hibari/雲雀Ver1.10.pmd");
 	//const char* cfilepath = ("Model/博麗霊夢/reimu_F01.pmd");
 
+	//PMXModel
+	/////////////////////////////////////////////////////////
+	const char* xfilepath = ("PMXModel/m_GUMI_V3_201306/GUMIβ_V3.pmx");
+
 	//モーション(アクション)
-	const char* mfilepath = ("Motion/pose.vmd");
-	//const char* mfilepath = ("Motion/swing2.vmd");
+	//const char* mfilepath = ("Motion/pose.vmd");
+	const char* mfilepath = ("Motion/swing2.vmd");
 	//const char* mfilepath = ("Motion/charge.vmd.vmd");
 	//const char* mfilepath = ("Motion/first.vmd");
 
@@ -661,6 +669,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	//const char* mfilepath = ("Motion/ヤゴコロダンス.vmd");
 
 	_model.reset(new PMDModel(cfilepath,_dev));
+
+	_pmxModel.reset(new PMXModel(xfilepath, _dev));
 
 	_model->InitMotion(mfilepath,_dev);
 

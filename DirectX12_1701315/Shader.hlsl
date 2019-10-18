@@ -98,6 +98,7 @@ float4 ps(Out o) : SV_Target
     //toon
     float4 toonDif = toon.Sample(toonsmp, float2(0, 1.0 - diffuseB));
     
+    //•\Ž¦
     return saturate(
             toonDif
             * diffuse
@@ -105,6 +106,4 @@ float4 ps(Out o) : SV_Target
             * sph.Sample(smp, normalUV))
             + saturate(float4(spec * specular.rgb, 1))
             + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.5, 1);
-
-    //return float4((float2) (o.boneno % 2), 0,1);
 }

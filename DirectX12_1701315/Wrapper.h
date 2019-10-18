@@ -8,6 +8,7 @@
 
 class Camera;
 class PMDModel;
+class PMXModel;
 
 class Wrapper
 {
@@ -83,6 +84,9 @@ private:
 
 	//model
 	std::shared_ptr<PMDModel> _model;
+
+	//pmxmodel
+	std::shared_ptr<PMXModel> _pmxModel;
 	
 	//í∏ì_èâä˙âª
 	void InitModelVertices();
