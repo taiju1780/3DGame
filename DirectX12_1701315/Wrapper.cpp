@@ -486,14 +486,17 @@ void Wrapper::InitTexture()
 
 void Wrapper::InitModelVertices()
 {
-	auto vdata = _model->GetverticesData();
-	auto idata = _model->GetindexData();
+	/*auto vdata = _model->GetverticesData();
+	auto idata = _model->GetindexData();*/
+	
+	auto vdata = _pmxModel->GetverticesData();
+	auto idata = _pmxModel->GetindexData();
 
 	//verticesバッファ作成
 	auto result = _dev->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(vdata.size() * VertexSize),
+		&CD3DX12_RESOURCE_DESC::Buffer(vdata.size() * sizeof(vdata[0])),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&_vertexModelBuffer)
@@ -501,7 +504,8 @@ void Wrapper::InitModelVertices()
 
 	//マップ
 	D3D12_RANGE range = { 0,0 };
-	PMDvertex* _vBufferptr = nullptr;
+	//PMDvertex* _vBufferptr = nullptr;
+	PMXVertex* _vBufferptr = nullptr;
 
 	_vertexModelBuffer->Map(0, &range, (void**)&_vBufferptr);
 	std::copy(vdata.begin(), vdata.end(), _vBufferptr);
@@ -646,15 +650,16 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	//const char* cfilepath = ("Model/初音ミク.pmd");
 	//const char* cfilepath = ("Model/巡音ルカ.pmd");
-	const char* cfilepath = ("Model/初音ミクmetal.pmd");
-	//const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
+	//const char* cfilepath = ("Model/初音ミクmetal.pmd");
+	const char* cfilepath = ("Model/初音ミクXS改変雪桜-1.1/mikuXS桜ミク.pmd");
 	//const char* cfilepath = ("Model/hibiki/我那覇響v1.pmd");
 	//const char* cfilepath = ("Model/hibari/雲雀Ver1.10.pmd");
 	//const char* cfilepath = ("Model/博麗霊夢/reimu_F01.pmd");
 
 	//PMXModel
 	/////////////////////////////////////////////////////////
-	const char* xfilepath = ("PMXModel/m_GUMI_V3_201306/GUMIβ_V3.pmx");
+	//const char* xfilepath = ("PMXModel/m_GUMI_V3_201306/GUMIβ_V3.pmx");
+	const char* xfilepath = ("PMXModel/ちびルーミア/ちびルーミア.pmx");
 
 	//モーション(アクション)
 	//const char* mfilepath = ("Motion/pose.vmd");
@@ -672,9 +677,9 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	_pmxModel.reset(new PMXModel(xfilepath, _dev));
 
-	_model->InitMotion(mfilepath,_dev);
+	//_model->InitMotion(mfilepath,_dev);
 
-	_model->InitBone(_dev);
+	//_model->InitBone(_dev);
 
 	InitModelVertices();
 	
@@ -699,7 +704,7 @@ void Wrapper::Update()
 	unsigned char keyState[256];
 	_camera->CameraUpdate(keyState);
 
-	_model->Update();
+	//_model->Update();
 
 	auto heapStart = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
 	float clearColor[] = { 0.8f,0.8f,0.8f,1.0f };
@@ -744,8 +749,8 @@ void Wrapper::Update()
 	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	//ボーンヒープセット
-	_cmdList->SetDescriptorHeaps(1, &_model->GetBoneHeap());
-	_cmdList->SetGraphicsRootDescriptorTable(2, _model->GetBoneHeap()->GetGPUDescriptorHandleForHeapStart());
+	/*_cmdList->SetDescriptorHeaps(1, &_model->GetBoneHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(2, _model->GetBoneHeap()->GetGPUDescriptorHandleForHeapStart());*/
 
 	//頂点セット
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -754,20 +759,29 @@ void Wrapper::Update()
 	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
 	_cmdList->IASetIndexBuffer(&_idxbView);
 
-	_cmdList->SetDescriptorHeaps(1, &_model->GetMatHeap());
+	//_cmdList->SetDescriptorHeaps(1, &_model->GetMatHeap());
+	_cmdList->SetDescriptorHeaps(1, &_pmxModel->GetMatHeap());
 
 	unsigned int offset = 0;
 
-	auto mathandle = _model->GetMatHeap()->GetGPUDescriptorHandleForHeapStart();
+	/*auto mathandle = _model->GetMatHeap()->GetGPUDescriptorHandleForHeapStart();*/
+	auto mathandle = _pmxModel->GetMatHeap()->GetGPUDescriptorHandleForHeapStart();
 
 	auto incriment_size = 
 		_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 5;
 	
-	for (auto& m : _model->GetmatData()) {
+	/*for (auto& m : _model->GetmatData()) {
 		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);
 		mathandle.ptr += incriment_size;
 		_cmdList->DrawIndexedInstanced(m.face_vert_count, 1, offset, 0, 0);
 		offset += m.face_vert_count;
+	}*/
+	
+	for (auto& m : _pmxModel->GetmatData()) {
+		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);
+		mathandle.ptr += incriment_size;
+		_cmdList->DrawIndexedInstanced(m.face_vert_cnt, 1, offset, 0, 0);
+		offset += m.face_vert_cnt;
 	}
 
 	//バリア閉じ

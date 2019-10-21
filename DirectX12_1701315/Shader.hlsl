@@ -51,10 +51,10 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, min1
 {
     Out o;
 
-    float w = weight / 100.0f;
-    matrix m = boneMatrices[boneno.x] * w + boneMatrices[boneno.y] * (1 - w);
+    //float w = weight / 100.0f;
+    //matrix m = boneMatrices[boneno.x] * w + boneMatrices[boneno.y] * (1 - w);
 
-    pos = mul(m, float4(pos, 1));
+    //pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(wvp, float4(pos, 1));
     o.uv = uv;
