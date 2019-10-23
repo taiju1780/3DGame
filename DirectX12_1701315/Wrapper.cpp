@@ -512,8 +512,8 @@ void Wrapper::InitModelVertices()
 	_vertexModelBuffer->Unmap(0, nullptr);
 
 	_vbView.BufferLocation = _vertexModelBuffer->GetGPUVirtualAddress();
-	_vbView.SizeInBytes = vdata.size() * VertexSize;
-	_vbView.StrideInBytes = VertexSize;
+	_vbView.SizeInBytes = vdata.size() * sizeof(vdata[0]);
+	_vbView.StrideInBytes = sizeof(vdata[0]);
 
 	//インデックスバッファ作成
 	result = _dev->CreateCommittedResource(
@@ -659,7 +659,9 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	//PMXModel
 	/////////////////////////////////////////////////////////
 	//const char* xfilepath = ("PMXModel/m_GUMI_V3_201306/GUMIβ_V3.pmx");
-	const char* xfilepath = ("PMXModel/ちびルーミア/ちびルーミア.pmx");
+	//const char* xfilepath = ("PMXModel/ちびルーミア/ちびルーミア.pmx");
+	//const char* xfilepath = ("PMXModel/底辺508式初音ミク・ビキニスタイル_Ver.1.40/底辺508式初音ミク_デニムビキニ(パステル).pmx");
+	const char* xfilepath = ("PMXModel/YYB式改変初音ミク(PRT.B-Cos)/YYB式改変初音ミク(PRT.B-Cos).pmx");
 
 	//モーション(アクション)
 	//const char* mfilepath = ("Motion/pose.vmd");

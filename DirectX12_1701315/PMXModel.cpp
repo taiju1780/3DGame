@@ -216,29 +216,74 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 		fread(&mat.face_vert_cnt, sizeof(mat.face_vert_cnt), 1, fp);
 	}
 
+	unsigned int BoneNum = 0;
+	fread(&BoneNum, sizeof(BoneNum), 1, fp);
+
+	_boneData.resize(BoneNum);
+
+	for (auto b : _boneData) {
+
+		//ボーン名
+		unsigned int bonepathnum = 0;
+		fread(&bonepathnum, sizeof(bonepathnum), 1, fp);
+		_bonename.resize(bonepathnum);
+
+		for (int t = 0; t < bonepathnum; ++t) {
+
+			unsigned int pathlength = 0;
+			fread(&pathlength, sizeof(pathlength), 1, fp);
+
+			std::string str;
+
+			for (int i = 0; i < pathlength / 2; ++i) {
+
+				wchar_t c;
+				fread(&c, sizeof(wchar_t), 1, fp);
+				str += c;
+			}
+			_bonename[t] = str;
+		}
+
+		unsigned int bytenum = 0;
+		fread(&bytenum, sizeof(bytenum), 1, fp);
+		fseek(fp, bytenum, SEEK_CUR);
+
+		fread(&b.pos, sizeof(b.pos), 1, fp);
+		fread(&b.parentbone, bornidxsize, 1, fp);
+		fread(&b.translevel, sizeof(b.translevel), 1, fp);
+		fread(&b.bitflag, sizeof(b.bitflag), 1, fp);
+
+
+	}
+
 	fclose(fp);
 
-	size_t idx = 0;
-	_texturePaths.resize(MatNum);
+	_texturePaths.resize(_matData.size());
+	_ToonBuff.resize(_matData.size());
 	auto folder = GetTexPath(filepath);
 
-	for (int i = 0; i < MatNum;++i) {
+	for (int i = 0; i < MatNum; ++i) {
 		if (_matData[i].toonidx != 0xff) {
 			if (_matData[i].toonflag == 1) {
 				toonfilepath = GetToonTexpathFromIndex(_matData[i].toonidx, folder);
-				InitToon(toonfilepath, _dev, idx);
+				InitToon(toonfilepath, _dev, i);
 			}
+			else
 			{
-				InitToon("", _dev, idx);
+				toonfilepath = GetOriginToonTexpathFromIndex(_matData[i].toonidx, folder);
+				InitToon(toonfilepath, _dev, i);
 			}
 		}
 		else {
-			InitToon("", _dev, idx);
+			InitToon("", _dev, i);
 		}
-		if (std::strlen(_texpath[i].c_str()) > 0) {
-			_texturePaths[idx] = folder + GetTexAstPath(_texpath[i].c_str());
+	}
+
+	for (int i = 0; i < MatNum; ++i)
+	{
+		if (_matData[i].textureIndex != 0xff) {
+			_texturePaths[i] = folder + GetTexAstPath(_texpath[_matData[i].textureIndex].c_str());
 		}
-		idx++;
 	}
 }
 
@@ -247,11 +292,11 @@ void PMXModel::CreatModelTex(ID3D12Device * _dev)
 	auto& _texturepath = _texturePaths;
 	auto& pMat = _matData;
 
-	_TexBuff.resize(_texturepath.size());
-	_TexBuffspa.resize(_texturepath.size());
-	_TexBuffsph.resize(_texturepath.size());
+	_TexBuff.resize(_matData.size());
+	_TexBuffspa.resize(_matData.size());
+	_TexBuffsph.resize(_matData.size());
 
-	for (int i = 0; i < _texturepath.size(); i++) {
+	for (int i = 0; i < pMat.size(); i++) {
 
 		TexMetadata metadata = {};
 		ScratchImage scratchimg = {};
@@ -430,20 +475,33 @@ void PMXModel::InitMaterial(ID3D12Device * _dev)
 }
 
 std::string PMXModel::GetToonTexpathFromIndex(int idx, std::string folderpath) {
-	std::string filepath = toonTexNames[idx];
+	char ToonTexName[16];
 	std::string toonpath = "toon/";
-	toonpath += filepath;
+	sprintf_s(ToonTexName, "toon%02d.bmp", idx + 1);
+	toonpath += ToonTexName;
 	if (PathFileExists(toonpath.c_str())) {
 		return toonpath;
 	}
 	else {
-		return folderpath + filepath;
+		return folderpath + ToonTexName;
+	}
+}
+
+std::string PMXModel::GetOriginToonTexpathFromIndex(int idx, std::string folderpath)
+{
+	char ToonTexName[16];
+	std::string toonpath = "toon/";
+	sprintf_s(ToonTexName, _texpath[idx].c_str());
+	toonpath += ToonTexName;
+	if (PathFileExists(toonpath.c_str())) {
+		return toonpath;
+	}
+	else {
+		return folderpath + ToonTexName;
 	}
 }
 
 void PMXModel::InitToon(std::string path, ID3D12Device * _dev, size_t idx) {
-
-	_ToonBuff.resize(_matData.size());
 
 	TexMetadata metadata = {};
 	ScratchImage scratchimg = {};
@@ -469,11 +527,11 @@ void PMXModel::InitToon(std::string path, ID3D12Device * _dev, size_t idx) {
 		//テクスチャデスク
 		D3D12_RESOURCE_DESC texDesc = {};
 		texDesc.Alignment = 0;									//先頭からなので0
-		texDesc.DepthOrArraySize = metadata.arraySize;					//リソースが2Dで配列でもないので１
+		texDesc.DepthOrArraySize = metadata.arraySize;			//リソースが2Dで配列でもないので１
 		texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;	//何次元テクスチャか(TEXTURE2D)
 		texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;				//NONE
 		texDesc.Format = metadata.format;						//例によって
-		texDesc.Width = metadata.width;						//テクスチャ幅
+		texDesc.Width = metadata.width;							//テクスチャ幅
 		texDesc.Height = metadata.height;						//テクスチャ高さ
 		texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;			//決定できないのでUNKNOWN
 		texDesc.MipLevels = metadata.mipLevels;					//ミップ使ってないので0
@@ -508,7 +566,7 @@ std::vector<PMXVertex> PMXModel::GetverticesData()
 	return _verticesData;
 }
 
-std::vector<unsigned short> PMXModel::GetindexData()
+std::vector<unsigned int> PMXModel::GetindexData()
 {
 	return _indexData;
 }

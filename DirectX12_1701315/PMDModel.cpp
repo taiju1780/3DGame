@@ -418,8 +418,6 @@ void PMDModel::MotionUpdate(int flameNo)
 
 void PMDModel::InitToon(std::string path, ID3D12Device * _dev, size_t idx) {
 	
-	_ToonBuff.resize(_matData.size());
-
 	TexMetadata metadata = {};
 	ScratchImage scratchimg = {};
 
@@ -616,6 +614,9 @@ void PMDModel::InitModel(const char * filepath, ID3D12Device* _dev)
 
 	size_t idx = 0;
 	_texturePaths.resize(matNum);
+
+	_ToonBuff.resize(_matData.size());
+
 	auto folder = GetTexPath(filepath);
 
 	for (auto &mat : _matData) {

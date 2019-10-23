@@ -28,6 +28,7 @@ struct Out
     float4 svpos : SV_POSITION;
     float2 uv : TEXCOORD;
     float3 normal : NORMAL;
+    float3 vnormal : NORMAL1;
     min16uint2 boneno : BONENO;
     min16uint weight : WEIGHT;
 };
@@ -58,8 +59,8 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, min1
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(wvp, float4(pos, 1));
     o.uv = uv;
-    normal = mul(world, float4(normal, 1));
-    o.normal = normal;
+    o.normal = mul(world, float4(normal, 1));
+    o.vnormal = mul(world, float4(o.normal, 1));
     o.boneno = boneno;
     o.weight = weight;
 
@@ -90,7 +91,7 @@ float4 ps(Out o) : SV_Target
     float spec = pow(saturate(dot(mirror, -ray)), specular.a);
 
     //スフィアマップ
-    float2 normalUV = (o.normal.xy + float2(1, -1)) * float2(0.5, -0.5);
+    float2 normalUV = (o.vnormal.xy + float2(1, -1)) * float2(0.5, -0.5);
 
     //調整
     diffuseB = saturate(1 - acos(diffuseB) / 3.141592f);
@@ -105,5 +106,5 @@ float4 ps(Out o) : SV_Target
             * tex.Sample(smp, o.uv)
             * sph.Sample(smp, normalUV))
             + saturate(float4(spec * specular.rgb, 1))
-            + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.5, 1);
+            + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.4, 1);
 }

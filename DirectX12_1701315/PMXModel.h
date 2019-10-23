@@ -51,6 +51,17 @@ struct Material {
 	int face_vert_cnt;
 };
 
+struct BoneInfo {
+	DirectX::XMFLOAT3 pos;
+	int parentbone;
+	int translevel;
+	short bitflag;
+};
+
+struct IKData {
+
+};
+
 #pragma pack()
 
 struct PMXColor {
@@ -64,9 +75,11 @@ class PMXModel
 private:
 	void LoadModel(const char * filepath, ID3D12Device* _dev);
 	std::vector<PMXVertex> _verticesData;
-	std::vector<unsigned short> _indexData;
+	std::vector<unsigned int> _indexData;
 	std::vector<std::string> _texpath;
+	std::vector<std::string> _bonename;
 	std::vector<Material> _matData;
+	std::vector<BoneInfo> _boneData;
 
 	std::vector<ID3D12Resource*> _matBuffs;
 	PMXColor* mappedColor = nullptr;
@@ -100,12 +113,13 @@ private:
 	std::array<char[100], 10> toonTexNames;
 
 	std::string GetToonTexpathFromIndex(int idx, std::string folderpath);
+	std::string GetOriginToonTexpathFromIndex(int idx, std::string folderpath);
 
 public:
 	PMXModel(const char * filepath, ID3D12Device* _dev);
 	~PMXModel();
 	std::vector<PMXVertex> GetverticesData();
-	std::vector<unsigned short> GetindexData();
+	std::vector<unsigned int> GetindexData();
 	std::vector<Material> GetmatData();
 	ID3D12DescriptorHeap*& GetMatHeap();
 };
