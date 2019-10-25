@@ -6,6 +6,7 @@
 #include <dxgi1_6.h>
 #include <d3d12.h>
 
+//ヘッダ情報
 struct PMXHeader {
 	char magic[4];
 	float version;
@@ -13,6 +14,7 @@ struct PMXHeader {
 	char data[8];
 };
 
+//コメント類
 struct ModelInfo {
 	int ModelNamesize;
 	int ModelNameEsize;
@@ -20,9 +22,9 @@ struct ModelInfo {
 	int CommentEsize;
 };
 
-
 #pragma pack(1)
 
+//頂点情報
 struct PMXVertex {
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT3 normal;
@@ -35,6 +37,7 @@ struct PMXVertex {
 	float edge;
 };
 
+//マテリアル
 struct Material {
 	DirectX::XMFLOAT4 diffuse;
 	DirectX::XMFLOAT3 specular;
@@ -51,16 +54,87 @@ struct Material {
 	int face_vert_cnt;
 };
 
+//IK
+struct IKData {
+	int targetboneidx;
+	int loop;
+	float loopangle;
+	int link;
+	int linkboneidx;
+	char anglelimit;
+	DirectX::XMFLOAT3 bottomangle;
+	DirectX::XMFLOAT3 topangle;
+};
+
+//ボーン
 struct BoneInfo {
 	DirectX::XMFLOAT3 pos;
-	int parentbone;
-	int translevel;
-	short bitflag;
+	unsigned int parentbone;
+	unsigned int translevel;
+	unsigned short bitflag;
+	DirectX::XMFLOAT3 offset;
+	unsigned int toboneidx;
+	unsigned int toparentidx;
+	float grantrate;
+	DirectX::XMFLOAT3 axisvec;
+	DirectX::XMFLOAT3 axisXvec;
+	DirectX::XMFLOAT3 axisZvec;
+	unsigned int key;
+	IKData ik;
 };
 
-struct IKData {
-
+//頂点モーフ
+struct VertexMorph {
+	int vertidx;
+	DirectX::XMFLOAT3 offset;
 };
+
+//UVモーフ
+struct UVMorph {
+	int vertidx;
+	DirectX::XMFLOAT4 offset;
+};
+
+//ボーンモーフ
+struct BoneMorph {
+	int vertidx;
+	DirectX::XMFLOAT3 moveOffset;
+	DirectX::XMFLOAT4 rollOffset;
+};
+
+//マテリアルモーフ
+struct MaterialMorph {
+	int vertidx;
+	char offsetclass;
+	DirectX::XMFLOAT4 diffuse;
+	DirectX::XMFLOAT3 speculer;
+	float specPow;
+	DirectX::XMFLOAT3 Ambient;
+	DirectX::XMFLOAT4 edgecolor;
+	float edgesize;
+	DirectX::XMFLOAT4 texPow;
+	DirectX::XMFLOAT4 sphtexPow;
+	DirectX::XMFLOAT4 toontexPow;
+};
+
+//グループモーフ
+struct GroupMorph {
+	int vertidx;
+	float morphnum;
+};
+
+//モーフデータ
+struct MorphData {
+	char panel;
+	char type;
+	int offsetnum;
+	VertexMorph vertMorph;
+	UVMorph uvMorph;
+	BoneMorph boneMorph;
+	MaterialMorph matMorph;
+	GroupMorph groupMorph;
+};
+
 
 #pragma pack()
 
@@ -77,7 +151,9 @@ private:
 	std::vector<PMXVertex> _verticesData;
 	std::vector<unsigned int> _indexData;
 	std::vector<std::string> _texpath;
-	std::vector<std::string> _bonename;
+	std::vector<std::wstring> _bonename;
+	std::vector<std::wstring> _bonenameE;
+	std::vector<MorphData> _morphData;
 	std::vector<Material> _matData;
 	std::vector<BoneInfo> _boneData;
 

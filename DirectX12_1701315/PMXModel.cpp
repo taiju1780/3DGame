@@ -97,7 +97,9 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 	int adduvnum = pmxH.data[1];
 	int vertidxsize = pmxH.data[2];
 	int texidxsize = pmxH.data[3];
-	int bornidxsize = pmxH.data[5];
+	int matidxsize = pmxH.data[3];
+	int boneidxsize = pmxH.data[5];
+	int morphidxsize = pmxH.data[6];
 
 	for (auto i = 0; i < Vnum; ++i) {
 		//ポジション
@@ -121,23 +123,23 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 
 		//ボーン
 		if (waitnum == 0) {
-			fread(&_verticesData[i].bone[0], bornidxsize, 1, fp);
+			fread(&_verticesData[i].bone[0], boneidxsize, 1, fp);
 		}
 		else if (waitnum == 1) {
 			
-			fread(&_verticesData[i].bone[0], bornidxsize, 1, fp);
-			fread(&_verticesData[i].bone[1], bornidxsize, 1, fp);
+			fread(&_verticesData[i].bone[0], boneidxsize, 1, fp);
+			fread(&_verticesData[i].bone[1], boneidxsize, 1, fp);
 			fread(&_verticesData[i].wait[0], sizeof(_verticesData[i].wait[0]), 1, fp);
 		}
 		else if (waitnum == 2) {
 			for (int bw = 0; bw < 4; ++bw) {
-				fread(&_verticesData[i].bone[bw], bornidxsize, 1, fp);
+				fread(&_verticesData[i].bone[bw], boneidxsize, 1, fp);
 				fread(&_verticesData[i].wait[bw], sizeof(_verticesData[i].wait[bw]), 1, fp);
 			}
 		}
 		else if (waitnum == 3) {
-			fread(&_verticesData[i].bone[0], bornidxsize, 1, fp);
-			fread(&_verticesData[i].bone[1], bornidxsize, 1, fp);
+			fread(&_verticesData[i].bone[0], boneidxsize, 1, fp);
+			fread(&_verticesData[i].bone[1], boneidxsize, 1, fp);
 			fread(&_verticesData[i].wait[0], sizeof(_verticesData[i].wait[0]), 1, fp);
 			for (int s = 0; s < 3; ++s) {
 				fread(&_verticesData[i].sdefvec[s], sizeof(_verticesData[i].sdefvec[s]), 1, fp);
@@ -216,44 +218,169 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 		fread(&mat.face_vert_cnt, sizeof(mat.face_vert_cnt), 1, fp);
 	}
 
+	//ボーン
 	unsigned int BoneNum = 0;
 	fread(&BoneNum, sizeof(BoneNum), 1, fp);
-
 	_boneData.resize(BoneNum);
+	_bonename.resize(BoneNum);
+	_bonenameE.resize(BoneNum);
+	auto idx = 0;
 
-	for (auto b : _boneData) {
+	for (auto &b : _boneData) {
 
 		//ボーン名
-		unsigned int bonepathnum = 0;
-		fread(&bonepathnum, sizeof(bonepathnum), 1, fp);
-		_bonename.resize(bonepathnum);
-
-		for (int t = 0; t < bonepathnum; ++t) {
-
-			unsigned int pathlength = 0;
-			fread(&pathlength, sizeof(pathlength), 1, fp);
-
-			std::string str;
-
-			for (int i = 0; i < pathlength / 2; ++i) {
-
-				wchar_t c;
-				fread(&c, sizeof(wchar_t), 1, fp);
-				str += c;
-			}
-			_bonename[t] = str;
-		}
-
 		unsigned int bytenum = 0;
 		fread(&bytenum, sizeof(bytenum), 1, fp);
-		fseek(fp, bytenum, SEEK_CUR);
 
+		std::wstring str;
+
+		for (int i = 0; i < bytenum/2; ++i) {
+			wchar_t c;
+			fread(&c, sizeof(wchar_t), 1, fp);
+			str += c;
+		}
+		_bonename[idx] = str;
+
+		//ボーン英名
+		fread(&bytenum, sizeof(bytenum), 1, fp);
+
+		std::wstring strt;
+
+		for (int i = 0; i < bytenum / 2; ++i) {
+			wchar_t c;
+			fread(&c, sizeof(wchar_t), 1, fp);
+			strt += c;
+		}
+		_bonenameE[idx] = strt;
+
+		//ポジション
 		fread(&b.pos, sizeof(b.pos), 1, fp);
-		fread(&b.parentbone, bornidxsize, 1, fp);
+
+		//親ボーン
+		fread(&b.parentbone, boneidxsize, 1, fp);
+
+		//変形階層
 		fread(&b.translevel, sizeof(b.translevel), 1, fp);
+
+		//ボーンフラグ
 		fread(&b.bitflag, sizeof(b.bitflag), 1, fp);
 
+		//以下ボーンフラグを見て読み込み
+		if (!(b.bitflag & 0x0001)) {
+			fread(&b.offset, sizeof(b.offset), 1, fp);
+		}
+		else {
+			fread(&b.toboneidx, boneidxsize, 1, fp);
+		}
+		if ((b.bitflag & 0x0200) || (b.bitflag & 0x0100)) {
+			fread(&b.toparentidx, boneidxsize, 1, fp);
+			fread(&b.grantrate, sizeof(b.grantrate), 1, fp);
+		}
+		if (b.bitflag & 0x0400) {
+			fread(&b.axisvec, sizeof(b.axisvec), 1, fp);
+		}
+		if (b.bitflag & 0x0800) {
+			fread(&b.axisXvec, sizeof(b.axisXvec), 1, fp);
+			fread(&b.axisZvec, sizeof(b.axisZvec), 1, fp);
+		}
+		if (b.bitflag & 0x2000) {
+			fread(&b.key, sizeof(b.key), 1, fp);
+		}
+		//IKの読み込み
+		if (b.bitflag & 0x0020) {
 
+			fread(&b.ik.targetboneidx, boneidxsize, 1, fp);
+			fread(&b.ik.loop, sizeof(b.ik.loop), 1, fp);
+			fread(&b.ik.loopangle, sizeof(b.ik.loopangle), 1, fp);
+			fread(&b.ik.link, sizeof(b.ik.link), 1, fp);
+
+			for (int i = 0; i < b.ik.link; ++i) {
+
+				fread(&b.ik.linkboneidx, boneidxsize, 1, fp);
+				fread(&b.ik.anglelimit, sizeof(b.ik.anglelimit), 1, fp);
+
+				if (b.ik.anglelimit) {
+
+					fread(&b.ik.bottomangle, sizeof(b.ik.bottomangle), 1, fp);
+					fread(&b.ik.topangle, sizeof(b.ik.topangle), 1, fp);
+				}
+			}
+		}
+		++idx;
+	}
+
+	unsigned int MorphNum = 0;
+	fread(&MorphNum, sizeof(MorphNum), 1, fp);
+	_morphData.resize(MorphNum);
+
+	for (auto &m : _morphData) {
+
+		//モーフ名
+		unsigned int bytenum = 0;
+		fread(&bytenum, sizeof(bytenum), 1, fp);
+
+		for (int i = 0; i < bytenum / 2; ++i) {
+			wchar_t c;
+			fread(&c, sizeof(wchar_t), 1, fp);
+		}
+
+		//モーフ名英
+		fread(&bytenum, sizeof(bytenum), 1, fp);
+
+		for (int i = 0; i < bytenum / 2; ++i) {
+			wchar_t c;
+			fread(&c, sizeof(wchar_t), 1, fp);
+		}
+
+		fread(&m.panel, sizeof(m.panel), 1, fp);
+		fread(&m.type, sizeof(m.type), 1, fp);
+		fread(&m.offsetnum, sizeof(m.offsetnum), 1, fp);
+
+		//グループ
+		if (m.type == 0) {
+			for (int i = 0; i < m.offsetnum; ++i) {
+				fread(&m.groupMorph.vertidx, morphidxsize, 1, fp);
+				fread(&m.groupMorph.morphnum, sizeof(m.groupMorph.morphnum), 1, fp);
+			}
+		}
+		//頂点
+		else if (m.type == 1) {
+			for (int i = 0; i < m.offsetnum; ++i) {
+				fread(&m.vertMorph.vertidx, vertidxsize, 1, fp);
+				fread(&m.vertMorph.offset, sizeof(m.vertMorph.offset), 1, fp);
+			}
+		}
+		//ボーン
+		else if (m.type == 2) {
+			for (int i = 0; i < m.offsetnum; ++i) {
+				fread(&m.boneMorph.vertidx, boneidxsize, 1, fp);
+				fread(&m.boneMorph.moveOffset, sizeof(m.boneMorph.moveOffset), 1, fp);
+				fread(&m.boneMorph.rollOffset, sizeof(m.boneMorph.rollOffset), 1, fp);
+			}
+		}
+		//マテリアル
+		else if (m.type == 8) {
+			for (int i = 0; i < m.offsetnum; ++i) {
+				fread(&m.matMorph.vertidx, matidxsize, 1, fp);
+				fread(&m.matMorph.offsetclass, sizeof(m.matMorph.offsetclass), 1, fp);
+				fread(&m.matMorph.diffuse, sizeof(m.matMorph.diffuse), 1, fp);
+				fread(&m.matMorph.speculer, sizeof(m.matMorph.speculer), 1, fp);
+				fread(&m.matMorph.specPow, sizeof(m.matMorph.specPow), 1, fp);
+				fread(&m.matMorph.Ambient, sizeof(m.matMorph.Ambient), 1, fp);
+				fread(&m.matMorph.edgecolor, sizeof(m.matMorph.edgecolor), 1, fp);
+				fread(&m.matMorph.edgesize, sizeof(m.matMorph.edgesize), 1, fp);
+				fread(&m.matMorph.texPow, sizeof(m.matMorph.texPow), 1, fp);
+				fread(&m.matMorph.sphtexPow, sizeof(m.matMorph.sphtexPow), 1, fp);
+				fread(&m.matMorph.toontexPow, sizeof(m.matMorph.toontexPow), 1, fp);
+			}
+		}
+		//UV
+		else{
+			for (int i = 0; i < m.offsetnum; ++i) {
+				fread(&m.uvMorph.vertidx, vertidxsize, 1, fp);
+				fread(&m.uvMorph.offset, sizeof(m.uvMorph.offset), 1, fp);
+			}
+		}
 	}
 
 	fclose(fp);
@@ -319,7 +446,7 @@ void PMXModel::CreatModelTex(ID3D12Device * _dev)
 				&metadata,
 				scratchimg);
 		}
-		else if (texpointExt == "tga") {
+		if (texpointExt == "tga") {
 			auto result = LoadFromTGAFile(
 				texpath.c_str(),
 				&metadata,
@@ -356,7 +483,7 @@ void PMXModel::CreatModelTex(ID3D12Device * _dev)
 
 		ID3D12Resource* tmpbuff = nullptr;
 
-		auto result = _dev->CreateCommittedResource(
+		 auto result = _dev->CreateCommittedResource(
 			&heapprop,
 			D3D12_HEAP_FLAG_NONE,
 			&texDesc,
@@ -407,14 +534,10 @@ void PMXModel::InitMaterial(ID3D12Device * _dev)
 		m->Map(0, nullptr, (void**)&mappedColor);
 
 		//ディフューズ
-		mappedColor->diffuse_color.x = pMat[idx].diffuse.x;
-		mappedColor->diffuse_color.y = pMat[idx].diffuse.y;
-		mappedColor->diffuse_color.z = pMat[idx].diffuse.z;
-
+		mappedColor->diffuse_color = pMat[idx].diffuse;
+		
 		//アンビエント
-		mappedColor->ambient.x = pMat[idx].ambient.x;
-		mappedColor->ambient.y = pMat[idx].ambient.y;
-		mappedColor->ambient.z = pMat[idx].ambient.z;
+		mappedColor->ambient = pMat[idx].ambient;
 
 		//スペキュラー
 		mappedColor->specular_color.x = pMat[idx].specular.x;
@@ -489,7 +612,7 @@ std::string PMXModel::GetToonTexpathFromIndex(int idx, std::string folderpath) {
 
 std::string PMXModel::GetOriginToonTexpathFromIndex(int idx, std::string folderpath)
 {
-	char ToonTexName[16];
+	char ToonTexName[256];
 	std::string toonpath = "toon/";
 	sprintf_s(ToonTexName, _texpath[idx].c_str());
 	toonpath += ToonTexName;

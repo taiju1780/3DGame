@@ -38,7 +38,7 @@ void Camera::InitConstants(ID3D12Device* dev)
 	auto result = dev->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&_rgstDescHeap));
 
 	//カメラ設定
-	XMFLOAT3 eye(0, 18, -15);//視点
+	XMFLOAT3 eye(0, 18, -50);//視点
 	XMFLOAT3 target(0, 10, 0);//注視点
 	XMFLOAT3 up(0, 1, 0);//上ベクトル
 
@@ -55,7 +55,7 @@ void Camera::InitConstants(ID3D12Device* dev)
 	//画角、アスペクト比、ニア、ファー
 	_wvp._projection = 
 		XMMatrixPerspectiveFovLH(
-		XM_PIDIV2,
+		XM_PIDIV2 / 3,
 		static_cast<float>(wsize.w) / static_cast<float>(wsize.h),
 		0.1f,
 		300);

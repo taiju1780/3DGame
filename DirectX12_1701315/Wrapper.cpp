@@ -332,6 +332,7 @@ void Wrapper::InitPipeline()
 		}
 	};
 
+
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
 
 	//ルートシグネチャと頂点レイアウト
@@ -359,8 +360,24 @@ void Wrapper::InitPipeline()
 	gpsDesc.RasterizerState.CullMode	= D3D12_CULL_MODE_NONE;
 	gpsDesc.RasterizerState.FillMode	= D3D12_FILL_MODE_SOLID;
 
+	D3D12_RENDER_TARGET_BLEND_DESC renderBlDesc = {};
+	renderBlDesc.BlendEnable			= true;
+	renderBlDesc.BlendOp				= D3D12_BLEND_OP_ADD;
+	renderBlDesc.BlendOpAlpha			= D3D12_BLEND_OP_ADD;
+	renderBlDesc.SrcBlend				= D3D12_BLEND_SRC_ALPHA;
+	renderBlDesc.DestBlend				= D3D12_BLEND_INV_SRC_ALPHA;
+	renderBlDesc.SrcBlendAlpha			= D3D12_BLEND_ONE;
+	renderBlDesc.DestBlendAlpha			= D3D12_BLEND_ZERO;
+	renderBlDesc.RenderTargetWriteMask	= D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	//αブレンド
+	D3D12_BLEND_DESC BlendDesc = {};
+	BlendDesc.AlphaToCoverageEnable = false;
+	BlendDesc.IndependentBlendEnable = false;
+	BlendDesc.RenderTarget[0] = renderBlDesc;
+
 	//その他
-	gpsDesc.BlendState				= CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	gpsDesc.BlendState				= BlendDesc;
 	gpsDesc.NodeMask				= 0;
 	gpsDesc.SampleDesc.Count		= 1;
 	gpsDesc.SampleDesc.Quality		= 0;
@@ -660,8 +677,10 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	/////////////////////////////////////////////////////////
 	//const char* xfilepath = ("PMXModel/m_GUMI_V3_201306/GUMIβ_V3.pmx");
 	//const char* xfilepath = ("PMXModel/ちびルーミア/ちびルーミア.pmx");
-	//const char* xfilepath = ("PMXModel/底辺508式初音ミク・ビキニスタイル_Ver.1.40/底辺508式初音ミク_デニムビキニ(パステル).pmx");
-	const char* xfilepath = ("PMXModel/YYB式改変初音ミク(PRT.B-Cos)/YYB式改変初音ミク(PRT.B-Cos).pmx");
+	//const char* xfilepath = ("PMXModel/YYB式改変初音ミク(PRT.B-Cos)/YYB式改変初音ミク(PRT.B-Cos).pmx");
+	//const char* xfilepath = ("PMXModel/レムとラム Ver. 1.02/Rem Ver. 1.02.pmx");
+	//const char* xfilepath = ("PMXModel/レムとラム Ver. 1.02/Ram.pmx");
+	const char* xfilepath = ("PMXModel/na_2b_0407h/na_2b_0407.pmx");
 
 	//モーション(アクション)
 	//const char* mfilepath = ("Motion/pose.vmd");
