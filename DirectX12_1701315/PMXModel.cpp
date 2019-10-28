@@ -306,6 +306,9 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 				}
 			}
 		}
+		_boneDataInfo[_bonename[idx]].first = idx;
+		_boneDataInfo[_bonename[idx]].second = b;
+
 		++idx;
 	}
 
@@ -512,6 +515,58 @@ void PMXModel::CreatModelTex(ID3D12Device * _dev)
 	}
 }
 
+void PMXModel::InitBone(ID3D12Device * _dev)
+{
+	_boneMatrices.resize(_boneData.size());
+
+	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
+
+	//ボーンバッファ
+	size_t size = sizeof(XMMATRIX) * _boneData.size();
+	size = (size + 0xff)&~0xff;
+
+	auto result = _dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(size),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&_boneBuff));
+
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descHeapDesc.NodeMask = 0;
+	descHeapDesc.NumDescriptors = 1;
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&_boneHeap));
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+	desc.BufferLocation = _boneBuff->GetGPUVirtualAddress();
+	desc.SizeInBytes = size;
+	auto handle = _boneHeap->GetCPUDescriptorHandleForHeapStart();
+	_dev->CreateConstantBufferView(&desc, handle);
+
+	result = _boneBuff->Map(0, nullptr, (void**)&mappedBoneMat);
+	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
+}
+
+
+void PMXModel::RotationBone(const std::string & boneName, const DirectX::XMFLOAT4 & q1, const DirectX::XMFLOAT4 & q2, float t)
+{
+	//auto node = _boneDataInfo[StringToWStirng(boneName)];
+	//auto vec = XMLoadFloat3(&node.startPos);
+	//auto quaternion = XMLoadFloat4(&q1);
+	//auto quaternion2 = XMLoadFloat4(&q2);
+
+	////平行移動
+	//auto pararelMove = XMMatrixTranslationFromVector(XMVectorScale(vec, -1));
+	//auto rota = XMMatrixRotationQuaternion(XMQuaternionSlerp(quaternion, quaternion2, t));
+	//auto pararelMove2 = XMMatrixTranslationFromVector(vec);
+
+	//_boneMatrices[node.boneidx] = pararelMove * rota * pararelMove2;
+}
+
 void PMXModel::InitMaterial(ID3D12Device * _dev)
 {
 	auto pMat = _matData;
@@ -704,6 +759,11 @@ ID3D12DescriptorHeap*& PMXModel::GetMatHeap()
 	return _matHeap;
 }
 
+ID3D12DescriptorHeap *& PMXModel::GetBoneHeap()
+{
+	return _boneHeap;
+}
+
 void PMXModel::CreateWhiteTexture(ID3D12Device* _dev)
 {
 	D3D12_HEAP_PROPERTIES Wheapprop = {};
@@ -856,6 +916,36 @@ std::wstring PMXModel::StringToWStirng(const std::string& str) {
 	return wstr;
 }
 
+std::string PMXModel::WStringToStirng(const std::wstring& wstr) {
+	auto ssize = WideCharToMultiByte(
+		CP_ACP,
+		WC_NO_BEST_FIT_CHARS,
+		wstr.data(),
+		wstr.length(),
+		nullptr,
+		0,
+		0,
+		0
+	);
+
+	std::string str;
+	str.resize(ssize);
+
+	ssize = WideCharToMultiByte(
+		CP_ACP,
+		WC_NO_BEST_FIT_CHARS,
+		wstr.data(),
+		wstr.length(),
+		&str[0],
+		ssize,
+		0,
+		0
+	);
+
+	assert(ssize == str.length());
+	return str;
+}
+
 PMXModel::PMXModel(const char * filepath,ID3D12Device* _dev)
 {
 	CreateGraduation(_dev);
@@ -866,7 +956,15 @@ PMXModel::PMXModel(const char * filepath,ID3D12Device* _dev)
 	InitMaterial(_dev);
 }
 
-
 PMXModel::~PMXModel()
 {
 }
+
+void PMXModel::Update()
+{
+	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
+	std::string str = "グループ";
+	_boneMatrices[_boneDataInfo[StringToWStirng(str)].first] = XMMatrixRotationZ(XM_PIDIV4);
+	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
+}
+

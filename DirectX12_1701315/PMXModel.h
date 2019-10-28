@@ -147,35 +147,64 @@ struct PMXColor {
 class PMXModel
 {
 private:
+	//モデル読み込み
 	void LoadModel(const char * filepath, ID3D12Device* _dev);
-	std::vector<PMXVertex> _verticesData;
-	std::vector<unsigned int> _indexData;
-	std::vector<std::string> _texpath;
-	std::vector<std::wstring> _bonename;
-	std::vector<std::wstring> _bonenameE;
-	std::vector<MorphData> _morphData;
-	std::vector<Material> _matData;
-	std::vector<BoneInfo> _boneData;
 
-	std::vector<ID3D12Resource*> _matBuffs;
-	PMXColor* mappedColor = nullptr;
-	ID3D12DescriptorHeap* _matHeap = nullptr;
+	//頂点情報
+	std::vector<PMXVertex> _verticesData;
+
+	//インデックス情報
+	std::vector<unsigned int> _indexData;
+
+	//テクスチャ用パス
+	std::vector<std::string> _texpath;
 
 	void CreateWhiteTexture(ID3D12Device* _dev);
 	ID3D12Resource* _whiteTexbuff;
 	void CreateBlackTexture(ID3D12Device* _dev);
 	ID3D12Resource* _blackTexbuff;
 	void CreateGraduation(ID3D12Device* _dev);
-		
+
 	void CreatModelTex(ID3D12Device * _dev); 
+
 	std::vector<std::string> _texturePaths;
 	std::vector<ID3D12Resource*> _TexBuff;
 	std::vector<ID3D12Resource*> _TexBuffspa;
 	std::vector<ID3D12Resource*> _TexBuffsph;
 
+	//ボーン名
+	//ボーンデータ
+	std::vector<BoneInfo> _boneData;
+
+	std::vector<std::wstring> _bonename;
+	std::map<std::wstring, std::pair<int,BoneInfo>> _boneDataInfo;
+	std::vector<std::wstring> _bonenameE;
+
+	//グラボに渡すため
+	std::vector<DirectX::XMMATRIX> _boneMatrices;
+
+	void RotationBone(const std::string & boneName, const DirectX::XMFLOAT4 & q1, const DirectX::XMFLOAT4 & q2, float t);
+
+	ID3D12Resource* _boneBuff;
+	ID3D12DescriptorHeap* _boneHeap = nullptr;
+	DirectX::XMMATRIX* mappedBoneMat;
+
+	//モーフデータ
+	std::vector<MorphData> _morphData;
+
+	//マテリアルデータ
+	std::vector<Material> _matData;
+
+	std::vector<ID3D12Resource*> _matBuffs;
+	PMXColor* mappedColor = nullptr;
+	ID3D12DescriptorHeap* _matHeap = nullptr;
+
 	void InitMaterial(ID3D12Device * _dev);
 
+	//str->wstr
 	std::wstring StringToWStirng(const std::string& str);
+
+	std::string WStringToStirng(const std::wstring & str);
 
 	//toon
 	void InitToon(std::string path, ID3D12Device * _dev, size_t idx);
@@ -194,9 +223,12 @@ private:
 public:
 	PMXModel(const char * filepath, ID3D12Device* _dev);
 	~PMXModel();
+	void Update();
 	std::vector<PMXVertex> GetverticesData();
 	std::vector<unsigned int> GetindexData();
 	std::vector<Material> GetmatData();
 	ID3D12DescriptorHeap*& GetMatHeap();
+	ID3D12DescriptorHeap*& GetBoneHeap();
+	void InitBone(ID3D12Device* _dev);
 };
 

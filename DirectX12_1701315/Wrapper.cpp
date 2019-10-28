@@ -702,6 +702,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	//_model->InitBone(_dev);
 
+	_pmxModel->InitBone(_dev);
+
 	InitModelVertices();
 	
 	//画像のやつ
@@ -726,6 +728,7 @@ void Wrapper::Update()
 	_camera->CameraUpdate(keyState);
 
 	//_model->Update();
+	_pmxModel->Update();
 
 	auto heapStart = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
 	float clearColor[] = { 0.8f,0.8f,0.8f,1.0f };
@@ -770,8 +773,8 @@ void Wrapper::Update()
 	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	//ボーンヒープセット
-	/*_cmdList->SetDescriptorHeaps(1, &_model->GetBoneHeap());
-	_cmdList->SetGraphicsRootDescriptorTable(2, _model->GetBoneHeap()->GetGPUDescriptorHandleForHeapStart());*/
+	_cmdList->SetDescriptorHeaps(1, &_pmxModel->GetBoneHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(2, _pmxModel->GetBoneHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	//頂点セット
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);

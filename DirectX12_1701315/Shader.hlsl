@@ -52,10 +52,10 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, min1
 {
     Out o;
 
-    //float w = weight / 100.0f;
-    //matrix m = boneMatrices[boneno.x] * w + boneMatrices[boneno.y] * (1 - w);
+    float w = weight / 100.0f;
+    matrix m = boneMatrices[boneno.x] * w + boneMatrices[boneno.y] * (1 - w);
 
-    //pos = mul(m, float4(pos, 1));
+    pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(wvp, float4(pos, 1));
     o.uv = uv;
@@ -70,6 +70,8 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, min1
 //ピクセルシェーダ
 float4 ps(Out o) : SV_Target
 {
+    return float4((float2) (o.boneno % 2), 0, 1);
+
      //視線
     float3 eye = float3(0, 18, -20);
 
@@ -98,10 +100,9 @@ float4 ps(Out o) : SV_Target
 
     //toon
     float4 toonDif = toon.Sample(toonsmp, float2(0, 1.0 - diffuseB));
-    
-    
+   
     //return saturate(float4(tex.Sample(smp, o.uv)) * toonDif * diffuse);
-
+    
     //表示
     return saturate(
             toonDif
