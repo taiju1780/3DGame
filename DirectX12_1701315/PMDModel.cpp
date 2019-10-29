@@ -407,6 +407,7 @@ void PMDModel::MotionUpdate(int flameNo)
 			auto a = flameIt->FlameNo;
 			auto b = nextIt->FlameNo;
 			auto t = (static_cast<float>(flameNo) - a) / (b - a);
+			//üŒ`•âŠÔ‚É‚æ‚è˜r‚Ì’·‚³‚ð’²®‚µ‚Ä‚¢‚é(‚µ‚È‚¢‚Æ’Z‚­‚È‚é)
 			t = CreatBezier(t, nextIt->bz1, nextIt->bz2);
 			RotationBone(anim.first.c_str(), flameIt->quaternion, nextIt->quaternion, t);
 		}

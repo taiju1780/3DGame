@@ -70,7 +70,7 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, min1
 //ピクセルシェーダ
 float4 ps(Out o) : SV_Target
 {
-    return float4((float2) (o.boneno % 2), 0, 1);
+    //return float4((float2) (o.boneno % 2), 0, 1);
 
      //視線
     float3 eye = float3(0, 18, -20);

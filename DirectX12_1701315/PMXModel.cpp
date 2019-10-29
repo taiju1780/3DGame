@@ -554,17 +554,17 @@ void PMXModel::InitBone(ID3D12Device * _dev)
 
 void PMXModel::RotationBone(const std::string & boneName, const DirectX::XMFLOAT4 & q1, const DirectX::XMFLOAT4 & q2, float t)
 {
-	//auto node = _boneDataInfo[StringToWStirng(boneName)];
-	//auto vec = XMLoadFloat3(&node.startPos);
-	//auto quaternion = XMLoadFloat4(&q1);
-	//auto quaternion2 = XMLoadFloat4(&q2);
+	auto node = _boneDataInfo[StringToWStirng(boneName)];
+	auto vec = XMLoadFloat3(&node.second.pos);
+	auto quaternion = XMLoadFloat4(&q1);
+	auto quaternion2 = XMLoadFloat4(&q2);
 
-	////平行移動
-	//auto pararelMove = XMMatrixTranslationFromVector(XMVectorScale(vec, -1));
-	//auto rota = XMMatrixRotationQuaternion(XMQuaternionSlerp(quaternion, quaternion2, t));
-	//auto pararelMove2 = XMMatrixTranslationFromVector(vec);
+	//平行移動
+	auto pararelMove = XMMatrixTranslationFromVector(XMVectorScale(vec, -1));
+	auto rota = XMMatrixRotationQuaternion(XMQuaternionSlerp(quaternion, quaternion2, t));
+	auto pararelMove2 = XMMatrixTranslationFromVector(vec);
 
-	//_boneMatrices[node.boneidx] = pararelMove * rota * pararelMove2;
+	_boneMatrices[node.first] = pararelMove * rota * pararelMove2;
 }
 
 void PMXModel::InitMaterial(ID3D12Device * _dev)
@@ -963,8 +963,21 @@ PMXModel::~PMXModel()
 void PMXModel::Update()
 {
 	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
-	std::string str = "グループ";
-	_boneMatrices[_boneDataInfo[StringToWStirng(str)].first] = XMMatrixRotationZ(XM_PIDIV4);
+	std::string str = "右ひじ";
+
+	auto node = _boneDataInfo[StringToWStirng(str)];
+	auto vec = XMLoadFloat3(&node.second.pos);
+
+	//平行移動
+	auto pararelMove = XMMatrixTranslationFromVector(XMVectorScale(vec, -1));
+	auto rota = XMMatrixRotationQuaternion(XMQuaternionRotationMatrix(XMMatrixRotationZ(XM_PIDIV4)));
+	auto pararelMove2 = XMMatrixTranslationFromVector(vec);
+	if (node.second.bitflag & 0x0080) {
+
+	}
+	
+	_boneMatrices[node.first] = pararelMove * rota * pararelMove2;
+
 	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
 }
 
