@@ -27,10 +27,15 @@ struct Out
     float4 pos : POSITION;
     float4 svpos : SV_POSITION;
     float2 uv : TEXCOORD;
+    float2 adduv : ADDUV;
+    float2 adduv2 : ADDUV2;
+    float2 adduv3 : ADDUV3;
+    float2 adduv4 : ADDUV4;
     float3 normal : NORMAL;
     float3 vnormal : NORMAL1;
-    min16uint2 boneno : BONENO;
-    min16uint weight : WEIGHT;
+    int weighttype : WEIGHT_TYPE;
+    int4 boneindex : BONEINDEX;
+    float4 weight : WEIGHT;
 };
 
 //定数レジスタ１
@@ -48,7 +53,8 @@ cbuffer Bones : register(b2)
 }
 
 //頂点シェーダ
-Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL, min16uint2 boneno : BONENO, min16uint weight : WEIGHT)
+Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float2 adduv : ADDUV, float2 adduv2 : ADDUV2, float2 adduv3 : ADDUV3, float2 adduv4 : ADDUV4,
+            float3 normal : NORMAL, int weighttype : WEIGHT_TYPE, int4 boneindex : BONEINDEX, float4 weight : WEIGHT)
 {
     Out o;
 

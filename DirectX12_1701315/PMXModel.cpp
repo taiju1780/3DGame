@@ -972,9 +972,6 @@ void PMXModel::Update()
 	auto pararelMove = XMMatrixTranslationFromVector(XMVectorScale(vec, -1));
 	auto rota = XMMatrixRotationQuaternion(XMQuaternionRotationMatrix(XMMatrixRotationZ(XM_PIDIV4)));
 	auto pararelMove2 = XMMatrixTranslationFromVector(vec);
-	if (node.second.bitflag & 0x0080) {
-
-	}
 	
 	_boneMatrices[node.first] = pararelMove * rota * pararelMove2;
 
