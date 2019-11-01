@@ -27,15 +27,15 @@ struct Out
     float4 pos : POSITION;
     float4 svpos : SV_POSITION;
     float2 uv : TEXCOORD;
-    float2 adduv : ADDUV;
-    float2 adduv2 : ADDUV2;
-    float2 adduv3 : ADDUV3;
-    float2 adduv4 : ADDUV4;
+    //float2 adduv : ADDUV;
+    //float2 adduv2 : ADDUV2;
+    //float2 adduv3 : ADDUV3;
+    //float2 adduv4 : ADDUV4;
     float3 normal : NORMAL;
     float3 vnormal : NORMAL1;
-    int weighttype : WEIGHT_TYPE;
-    int4 boneindex : BONEINDEX;
-    float4 weight : WEIGHT;
+    //int weighttype : WEIGHT_TYPE;
+    //int4 boneindex : BONEINDEX;
+    //float4 weight : WEIGHT;
 };
 
 //定数レジスタ１
@@ -53,22 +53,22 @@ cbuffer Bones : register(b2)
 }
 
 //頂点シェーダ
-Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float2 adduv : ADDUV, float2 adduv2 : ADDUV2, float2 adduv3 : ADDUV3, float2 adduv4 : ADDUV4,
-            float3 normal : NORMAL, int weighttype : WEIGHT_TYPE, int4 boneindex : BONEINDEX, float4 weight : WEIGHT)
+Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL /*float2 adduv : ADDUV, float2 adduv2 : ADDUV2, float2 adduv3 : ADDUV3, float2 adduv4 : ADDUV4,
+             int weighttype : WEIGHT_TYPE, int4 boneindex : BONEINDEX, float4 weight : WEIGHT*/)
 {
     Out o;
 
-    float w = weight / 100.0f;
-    matrix m = boneMatrices[boneno.x] * w + boneMatrices[boneno.y] * (1 - w);
+    //float w = weight / 100.0f;
+    //matrix m = boneMatrices[boneno.x] * w + boneMatrices[boneno.y] * (1 - w);
 
-    pos = mul(m, float4(pos, 1));
+    //pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(wvp, float4(pos, 1));
     o.uv = uv;
     o.normal = mul(world, float4(normal, 1));
     o.vnormal = mul(world, float4(o.normal, 1));
-    o.boneno = boneno;
-    o.weight = weight;
+    //o.boneindex = boneindex;
+    //o.weight = weight;
 
     return o;
 }

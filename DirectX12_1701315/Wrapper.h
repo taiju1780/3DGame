@@ -9,6 +9,13 @@
 class Camera;
 class PMDModel;
 class PMXModel;
+class Floor;
+
+//ペラポリゴン(マルチパス用)
+struct VertexTex {
+	DirectX::XMFLOAT3 pos;//頂点座標
+	DirectX::XMFLOAT2 uv;
+};
 
 class Wrapper
 {
@@ -87,6 +94,9 @@ private:
 
 	//pmxmodel
 	std::shared_ptr<PMXModel> _pmxModel;
+
+	//Floar
+	std::shared_ptr<Floor> _floor;
 	
 	//頂点初期化
 	void InitModelVertices();
@@ -99,9 +109,33 @@ private:
 	ID3D12DescriptorHeap* _dsvHeap = nullptr;
 	ID3D12DescriptorHeap* _depthSrvHeap = nullptr;
 
+	//ペラポリ
+	D3D12_VERTEX_BUFFER_VIEW _1stvbView = {};
+	ID3D12Resource* _peraBuff;
+
+	D3D12_VIEWPORT _1stPathviewport;
+	D3D12_RECT _1stPathscissorRect;
+
+
+	//１パス目に使用するレンダリングバッファ
+	ID3D12Resource* _1stPathBuff;
+	ID3D12DescriptorHeap* _rtv1stDescHeap = nullptr;		//RTV(レンダーターゲット)デスクリプタヒープ
+	ID3D12DescriptorHeap *_srv1stDescHeap = nullptr;		//その他(テクスチャ、定数)デスクリプタヒープ
+
+	ID3DBlob* peravertexShader = nullptr;
+	ID3DBlob* perapixelShader = nullptr;
+
+	ID3D12PipelineState* _perapipeline = nullptr;
+	ID3D12RootSignature* _perarootsigunature = nullptr;
+
+	void InitPath1stRTVSRV();
+	void InitVerticesPera();
+	void InitPath1stRootSignature();
+
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
 	~Wrapper();
 	void Update();
+	void PeraUpdate();
 };
 

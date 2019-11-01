@@ -70,13 +70,15 @@ void Application::InitWindow()
 		w.hInstance,				//呼び出しアプリケーションハンドル
 		nullptr						//追加パラメータ
 	);
-
+	
+	
 	_wrap.reset(new Wrapper(w.hInstance, _hwnd));
 }
 
 void Application::Initialize()
 {
-	CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+	auto result = CoInitialize(nullptr);
+	result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 	InitWindow();
 }
 
