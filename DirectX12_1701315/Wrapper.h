@@ -10,6 +10,7 @@ class Camera;
 class PMDModel;
 class PMXModel;
 class Floor;
+class Shadow;
 
 //ペラポリゴン(マルチパス用)
 struct VertexTex {
@@ -97,6 +98,9 @@ private:
 
 	//Floar
 	std::shared_ptr<Floor> _floor;
+
+	//shadow
+	std::shared_ptr<Shadow> _shadow;
 	
 	//頂点初期化
 	void InitModelVertices();
@@ -131,6 +135,9 @@ private:
 	void InitPath1stRTVSRV();
 	void InitVerticesPera();
 	void InitPath1stRootSignature();
+
+	//影
+	void DrawLightView();
 
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);

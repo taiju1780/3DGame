@@ -4,6 +4,7 @@
 #include "PMDModel.h"
 #include "PMXModel.h"
 #include "Floor.h"
+#include "Shadow.h"
 #include <d3dcompiler.h>
 #include <DirectXTex.h>
 #include <stdio.h>
@@ -293,20 +294,20 @@ void Wrapper::InitPipeline()
 
 		{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},	
 
-		////追加UV
+		//追加UV
 		//{"ADDUV",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
-		//{"ADDUV2",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		//{"ADDUV",1,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
-		//{"ADDUV3",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		//{"ADDUV",2,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
-		//{"ADDUV4",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		//{"ADDUV",3,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
 		////ウェイトタイプ
-		//{"WEIGHT_TYPE",0,DXGI_FORMAT_R8_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+		//{"WEIGHT_TYPE",0,DXGI_FORMAT_R32_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 
 		////ボーンイデックス
-		//{"BONEINDEX",0,DXGI_FORMAT_R32G32B32A32_SINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		//{"BONEINDEX",0,DXGI_FORMAT_R32G32B32A32_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
 		////ウェイト
 		//{"WEIGHT",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 }
@@ -796,6 +797,70 @@ void Wrapper::InitPath1stRootSignature()
 		IID_PPV_ARGS(&_perarootsigunature));
 }
 
+void Wrapper::DrawLightView()
+{
+	_cmdList->SetPipelineState(_shadow->GetShadowPipeline());
+
+	_cmdList->SetGraphicsRootSignature(_shadow->GetShadowRootSignature());
+
+	_viewport.Width = _shadow->Getbuff()->GetDesc().Width;
+	_viewport.Height = _shadow->Getbuff()->GetDesc().Height;
+
+	_scissorRect.right = _shadow->Getbuff()->GetDesc().Width;
+	_scissorRect.bottom = _shadow->Getbuff()->GetDesc().Height;
+
+	//ビューポート、シザー
+	_cmdList->RSSetViewports(1, &_viewport);
+	_cmdList->RSSetScissorRects(1, &_scissorRect);
+
+	//バリアー
+	_cmdList->ResourceBarrier(
+		1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(
+			_shadow->Getbuff(),
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_DEPTH_WRITE));
+
+	//レンダーターゲット設定
+	_cmdList->OMSetRenderTargets(0, nullptr, false, &_shadow->GetDsvHeap()->GetCPUDescriptorHandleForHeapStart());
+
+	//深度バッファのクリア
+	auto _sdsv = _shadow->GetDsvHeap()->GetCPUDescriptorHandleForHeapStart();
+	_cmdList->ClearDepthStencilView(_sdsv, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
+
+	//ヒープセット
+	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
+
+	//トポロジセット
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	//バッファービューのセット
+	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
+	_cmdList->IASetIndexBuffer(&_idxbView);
+
+	//ボーンヒープ
+	_cmdList->SetDescriptorHeaps(1, &_pmxModel->GetBoneHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(1, _pmxModel->GetBoneHeap()->GetGPUDescriptorHandleForHeapStart());
+
+	//モデル表示
+	unsigned int offset = 0;
+
+	for (auto m : _pmxModel->GetmatData()) {
+		_cmdList->DrawIndexedInstanced(m.face_vert_cnt, 1, offset, 0, 0);
+		offset += m.face_vert_cnt;
+	}
+
+	//バリアー
+	_cmdList->ResourceBarrier(
+		1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(
+			_shadow->Getbuff(),
+			D3D12_RESOURCE_STATE_DEPTH_WRITE,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+		));
+}
+
 Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 {
 	//フィーチャーレベル
@@ -892,6 +957,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	_floor.reset(new Floor(_dev));
 
+	_shadow.reset(new Shadow(_dev));
+
 	InitModelVertices();
 	
 	//画像のやつ
@@ -908,10 +975,12 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	InitPath1stRootSignature();
 
 	_floor->InitRootSignature(_dev);
+
+	_shadow->InitRootSignature(_dev);
 	
 	InitPipeline();
 
-	_floor->InitPiplineState(_dev);
+	_shadow->InitPipline(_dev);
 }
 
 Wrapper::~Wrapper()
@@ -938,6 +1007,8 @@ void Wrapper::Update()
 	//コマンドのリセット
 	auto result = _cmdAllocator->Reset();
 	result = _cmdList->Reset(_cmdAllocator, nullptr);
+
+	DrawLightView();
 
 	//パイプラインのセット
 	_cmdList->SetPipelineState(_pipeline);
@@ -1008,6 +1079,9 @@ void Wrapper::Update()
 	//床
 	_cmdList->SetPipelineState(_floor->_GetPipeline());
 	_cmdList->SetGraphicsRootSignature(_floor->GetRootSignature());
+	
+	_cmdList->SetPipelineState(_shadow->GetShadowPipeline());
+	_cmdList->SetGraphicsRootSignature(_shadow->GetShadowRootSignature());
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	_cmdList->IASetVertexBuffers(0, 1, &_floor->GetView());
@@ -1072,6 +1146,9 @@ void Wrapper::PeraUpdate()
 	//ペラポリ
 	_cmdList->SetDescriptorHeaps(1, &_srv1stDescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(0, _srv1stDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+	_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(0, _shadow->GetSrvHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 

@@ -127,6 +127,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PMDModel.cpp" />
     <ClCompile Include="PMXModel.cpp" />
+    <ClCompile Include="Shadow.cpp" />
     <ClCompile Include="Wrapper.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -136,6 +137,7 @@
     <ClInclude Include="Floor.h" />
     <ClInclude Include="PMDModel.h" />
     <ClInclude Include="PMXModel.h" />
+    <ClInclude Include="Shadow.h" />
     <ClInclude Include="Wrapper.h" />
   </ItemGroup>
   <ItemGroup>

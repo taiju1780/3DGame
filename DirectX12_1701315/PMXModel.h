@@ -22,8 +22,6 @@ struct ModelInfo {
 	int CommentEsize;
 };
 
-#pragma pack(1)
-
 //頂点情報
 struct PMXVertex {
 	DirectX::XMFLOAT3 pos;
@@ -36,6 +34,7 @@ struct PMXVertex {
 	DirectX::XMFLOAT3 sdefvec[3];
 	float edge;
 };
+#pragma pack(1)
 
 //マテリアル
 struct Material {

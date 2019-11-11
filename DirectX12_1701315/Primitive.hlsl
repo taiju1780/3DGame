@@ -1,5 +1,5 @@
 
-//Texture2D<float> shadow : register(t0); //[“x
+Texture2D<float> shadow : register(t0); //[“x
 
 SamplerState smp : register(s0);
 
@@ -44,12 +44,14 @@ float4 ps(Output input) : SV_Target
     float2 suv = (Pos.xy + float2(1, -1)) * float2(0.5, -0.5);
 
     //ƒ}ƒbƒv‚ÉŠi”[‚³‚ê‚½[“x’l
-    //float depth = pow(shadow.Sample(smp, suv), 100);
+    float depth = pow(shadow.Sample(smp, suv), 100);
 
     //ƒ‰ƒCƒg‚Æ[“x’l‚Ì”äŠr
-    //if (Pos.z > depth)
-    //{
-    //    return float4(0.5, 0.5, 0.5, 1);
-    //}
+
+    if (Pos.z > depth)
+    {
+        return float4(0.5, 0.5, 0.5, 1);
+    }
+
     return float4(1, 1, 1, 1);
 }
