@@ -6,9 +6,9 @@
 
 void Shadow::InitShaders()
 {
-	auto result = D3DCompileFromFile(L"Primitive.hlsl", nullptr, nullptr, "vs", "vs_5_0", 0, 0, &_shadowVshader, nullptr);
+	auto result = D3DCompileFromFile(L"shadow.hlsl", nullptr, nullptr, "vs", "vs_5_0", 0, 0, &_shadowVshader, nullptr);
 
-	result = D3DCompileFromFile(L"Primitive.hlsl", nullptr, nullptr, "ps", "ps_5_0", 0, 0, &_shadowPshader, nullptr);
+	result = D3DCompileFromFile(L"shadow.hlsl", nullptr, nullptr, "ps", "ps_5_0", 0, 0, &_shadowPshader, nullptr);
 }
 
 size_t Shadow::RoundupPowerOf2(size_t size)
@@ -29,7 +29,7 @@ void Shadow::InitRootSignature(ID3D12Device *_dev)
 	samplerDesc.AddressV					= D3D12_TEXTURE_ADDRESS_MODE_WRAP;					//絵が繰り返される(V方向)
 	samplerDesc.AddressW					= D3D12_TEXTURE_ADDRESS_MODE_WRAP;					//絵が繰り返される(W方向)
 	samplerDesc.BorderColor					= D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;		//エッジの色(黒透明)
-	samplerDesc.Filter						= D3D12_FILTER_MIN_MAG_MIP_LINEAR;	//特別なフィルタを使用しない
+	samplerDesc.Filter						= D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;	//特別なフィルタを使用しない
 	samplerDesc.MaxLOD						= D3D12_FLOAT32_MAX;				//MIPMAP上限なし
 	samplerDesc.MinLOD						= 0.0;								//MIPMAP下限なし
 	samplerDesc.MipLODBias					= 0.0f;								//MIPMAPのバイアス
@@ -66,7 +66,7 @@ void Shadow::InitRootSignature(ID3D12Device *_dev)
 
 	//ボーン用
 	rootparam[1].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootparam[1].ShaderVisibility						= D3D12_SHADER_VISIBILITY_VERTEX;
+	rootparam[1].ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
 	rootparam[1].DescriptorTable.NumDescriptorRanges	= 1;
 	rootparam[1].DescriptorTable.pDescriptorRanges		= &descTblrange[1];
 
@@ -83,7 +83,8 @@ void Shadow::InitRootSignature(ID3D12Device *_dev)
 		&rootSignatureBlob,
 		&error);
 
-	result = _dev->CreateRootSignature(0,
+	result = _dev->CreateRootSignature(
+		0,
 		rootSignatureBlob->GetBufferPointer(),
 		rootSignatureBlob->GetBufferSize(),
 		IID_PPV_ARGS(&_shadowRootSignature));
@@ -157,20 +158,38 @@ void Shadow::InitPipline(ID3D12Device *_dev)
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(_shadowPshader);
 
 	//レンダーターゲット
-	gpsDesc.NumRenderTargets = 1;	//ターゲット数と設定するフォーマット数は一致させる
-	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-
+	gpsDesc.NumRenderTargets	= 1;	//ターゲット数と設定するフォーマット数は一致させる
+	gpsDesc.RTVFormats[0]		= DXGI_FORMAT_R8G8B8A8_UNORM;
+	
 	//ラスタライザ
-	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	gpsDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	gpsDesc.RasterizerState				= CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	gpsDesc.RasterizerState.CullMode	= D3D12_CULL_MODE_NONE;
+	gpsDesc.RasterizerState.FillMode	= D3D12_FILL_MODE_SOLID;
+
+
+	D3D12_RENDER_TARGET_BLEND_DESC renderBlDesc = {};
+	renderBlDesc.BlendEnable					= true;
+	renderBlDesc.BlendOp						= D3D12_BLEND_OP_ADD;
+	renderBlDesc.BlendOpAlpha					= D3D12_BLEND_OP_ADD;
+	renderBlDesc.SrcBlend						= D3D12_BLEND_SRC_ALPHA;
+	renderBlDesc.DestBlend						= D3D12_BLEND_INV_SRC_ALPHA;
+	renderBlDesc.SrcBlendAlpha					= D3D12_BLEND_ONE;
+	renderBlDesc.DestBlendAlpha					= D3D12_BLEND_ZERO;
+	renderBlDesc.RenderTargetWriteMask			= D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	//αブレンド
+	D3D12_BLEND_DESC BlendDesc = {};
+	BlendDesc.AlphaToCoverageEnable = false;
+	BlendDesc.IndependentBlendEnable = false;
+	BlendDesc.RenderTarget[0] = renderBlDesc;
 
 	//その他
-	gpsDesc.BlendState			= CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	gpsDesc.BlendState			= BlendDesc;
 	gpsDesc.NodeMask			= 0;
 	gpsDesc.SampleDesc.Count	= 1;			//いる
 	gpsDesc.SampleDesc.Quality	= 0;			//いる
 	gpsDesc.SampleMask			= 0xffffffff;		//全部１
-	//gpsDesc.Flags;						//デフォルトでおけ
+	gpsDesc.SampleMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 
 	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 

@@ -817,9 +817,9 @@ void Wrapper::DrawLightView()
 	_cmdList->ResourceBarrier(
 		1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(
-			_shadow->Getbuff(),
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
-			D3D12_RESOURCE_STATE_DEPTH_WRITE));
+		_shadow->Getbuff(),
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
 	//レンダーターゲット設定
 	_cmdList->OMSetRenderTargets(0, nullptr, false, &_shadow->GetDsvHeap()->GetCPUDescriptorHandleForHeapStart());
@@ -855,9 +855,9 @@ void Wrapper::DrawLightView()
 	_cmdList->ResourceBarrier(
 		1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(
-			_shadow->Getbuff(),
-			D3D12_RESOURCE_STATE_DEPTH_WRITE,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+		_shadow->Getbuff(),
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
 		));
 }
 
@@ -980,6 +980,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	
 	InitPipeline();
 
+	_floor->InitPiplineState(_dev);
+
 	_shadow->InitPipline(_dev);
 }
 
@@ -1002,13 +1004,11 @@ void Wrapper::Update()
 	auto bbidx = _swapchain->GetCurrentBackBufferIndex();
 	auto rtvHeapSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
-	//heapStart.ptr += (bbidx * rtvHeapSize);
-
 	//コマンドのリセット
 	auto result = _cmdAllocator->Reset();
 	result = _cmdList->Reset(_cmdAllocator, nullptr);
 
-	DrawLightView();
+	//DrawLightView();
 
 	//パイプラインのセット
 	_cmdList->SetPipelineState(_pipeline);
@@ -1080,8 +1080,12 @@ void Wrapper::Update()
 	_cmdList->SetPipelineState(_floor->_GetPipeline());
 	_cmdList->SetGraphicsRootSignature(_floor->GetRootSignature());
 	
-	_cmdList->SetPipelineState(_shadow->GetShadowPipeline());
-	_cmdList->SetGraphicsRootSignature(_shadow->GetShadowRootSignature());
+	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
+
+	//shadow用
+	_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(1, _shadow->GetSrvHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	_cmdList->IASetVertexBuffers(0, 1, &_floor->GetView());
@@ -1147,8 +1151,8 @@ void Wrapper::PeraUpdate()
 	_cmdList->SetDescriptorHeaps(1, &_srv1stDescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(0, _srv1stDescHeap->GetGPUDescriptorHandleForHeapStart());
 
-	_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
-	_cmdList->SetGraphicsRootDescriptorTable(0, _shadow->GetSrvHeap()->GetGPUDescriptorHandleForHeapStart());
+	//_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
+	//_cmdList->SetGraphicsRootDescriptorTable(0, _shadow->GetSrvHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 

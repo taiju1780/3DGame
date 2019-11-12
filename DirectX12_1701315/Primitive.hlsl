@@ -8,7 +8,7 @@ struct Output
     float4 svpos : SV_POSITION;
     float4 pos : POSITION;
     float2 uv : TEXCOORD;
-    float3 normal : NORMAL;
+    float4 normal : NORMAL;
 };
 
 //マトリクス(定数バッファ)
@@ -21,14 +21,14 @@ cbuffer mat : register(b0)
     matrix lvp;
 }
 
-Output vs(float4 pos : POSITION, float4 normal : NORMAL, float2 uv : TEXCOORD)
+Output vs(float3 pos : POSITION, float3 normal : NORMAL, float2 uv : TEXCOORD)
 {
     Output output;
 
-    output.pos = mul(world, pos);
-    output.svpos = mul(wvp, pos);
+    output.pos = mul(world, float4(pos, 1));
+    output.svpos = mul(wvp, float4(pos, 1));
     output.uv = uv;
-    output.normal = mul(world, normal);
+    output.normal = mul(world, float4(normal, 1));
 
     return output;
 }
