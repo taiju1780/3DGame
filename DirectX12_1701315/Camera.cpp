@@ -42,6 +42,12 @@ void Camera::InitConstants(ID3D12Device* dev)
 	XMFLOAT3 target(0, 10, 0);//注視点
 	XMFLOAT3 up(0, 1, 0);//上ベクトル
 
+	XMFLOAT3 light(-10, 20, -10);
+	XMMATRIX lightview = XMMatrixLookAtLH(XMLoadFloat3(&light),XMLoadFloat3(&target),XMLoadFloat3(&up));
+	XMMATRIX lightproj = XMMatrixOrthographicLH(40, 40, 0.1f, 300.f);
+
+	_wvp._lvp = lightview * lightproj;
+
 	//ベクトル変換
 	//XMVECTOR veye = XMLoadFloat3(&eye);
 
@@ -122,7 +128,6 @@ void Camera::CameraUpdate(unsigned char keyState[])
 		}
 	}
 	
-
 	_wvp._wvp = _wvp._world;
 	_wvp._wvp *= _wvp._view;
 	_wvp._wvp *= _wvp._projection;

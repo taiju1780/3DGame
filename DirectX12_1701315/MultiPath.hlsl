@@ -76,18 +76,18 @@ float4 ps(Output input) : SV_Target
 
     ////ポスタリゼーション
 
-    //float3 post = ret.rgb - fmod(ret.rgb, 0.25f);
-    //return float4(post, 1);
+    float3 post = ret.rgb - fmod(ret.rgb, 0.25f);
+    return float4(post, 1);
     ////↑↓どちらでも可
     //return float4(trunc(post * 4) / 4.0f, 1);
 
    
     //反転
-    if (input.uv.y < 0.6 && input.uv.y > 0.4)
-    {
-        float4 col = tex.Sample(smp, input.uv);
-        return float4(1 - col.rgb, col.a);
-    }
+    //if (input.uv.y < 0.6 && input.uv.y > 0.4)
+    //{
+    //    float4 col = tex.Sample(smp, input.uv);
+    //    return float4(1 - col.rgb, col.a);
+    //}
 
     //通常
     return ret;

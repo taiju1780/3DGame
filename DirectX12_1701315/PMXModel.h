@@ -28,12 +28,13 @@ struct PMXVertex {
 	DirectX::XMFLOAT3 normal;
 	DirectX::XMFLOAT2 uv;
 	DirectX::XMFLOAT4 addUv[4];
-	char waitclass;
+	unsigned char waitclass;
 	int bone[4];
 	float wait[4];
 	DirectX::XMFLOAT3 sdefvec[3];
 	float edge;
 };
+
 #pragma pack(1)
 
 //マテリアル
@@ -67,6 +68,7 @@ struct IKData {
 
 //ボーン
 struct BoneInfo {
+	std::wstring name;
 	DirectX::XMFLOAT3 pos;
 	unsigned int parentbone;
 	unsigned int translevel;
@@ -134,13 +136,29 @@ struct MorphData {
 	GroupMorph groupMorph;
 };
 
-
 #pragma pack()
 
 struct PMXColor {
 	DirectX::XMFLOAT4 diffuse_color;	//dr,dg,db : 減衰色
 	DirectX::XMFLOAT3 specular_color;	//sr,sg,sb : 光沢色
 	DirectX::XMFLOAT3 ambient;			//mr,mg,mb : 環境色(Ambient)
+};
+
+struct PMX_VMD_MOTION {					// 111 Bytes // モーション
+	char BoneName[15];					// ボーン名
+	unsigned int FlameNo;				// フレーム番号(読込時は現在のフレーム位置を0とした相対位置)
+	float Location[3];					// 位置
+	DirectX::XMFLOAT4 quaternion;		// Quaternion // 回転
+	unsigned char Interpolation[64];	// [4][4][4] // 補完
+	DirectX::XMFLOAT2 bz1;				//ベジェ係数1
+	DirectX::XMFLOAT2 bz2;				//ベジェ係数2
+};
+
+struct BoneNodePMX {
+	int boneidx;
+	DirectX::XMFLOAT3 startPos;//ボーン始点
+	//DirectX::XMFLOAT3 endPos;//ボーン始点
+	std::vector<BoneNodePMX*> children;
 };
 
 class PMXModel
@@ -178,11 +196,12 @@ private:
 	std::vector<std::wstring> _bonename;
 	std::map<std::wstring, std::pair<int,BoneInfo>> _boneDataInfo;
 	std::vector<std::wstring> _bonenameE;
+	std::map<std::wstring, BoneNodePMX> _boneMap;//探すためのマップ
 
 	//グラボに渡すため
 	std::vector<DirectX::XMMATRIX> _boneMatrices;
 
-	void RotationBone(const std::string & boneName, const DirectX::XMFLOAT4 & q1, const DirectX::XMFLOAT4 & q2, float t);
+	void RotationBone(const std::string& boneName, const DirectX::XMFLOAT4& puaternion, const DirectX::XMFLOAT4& puaternion2 = DirectX::XMFLOAT4(), float t = 0.0f);
 
 	ID3D12Resource* _boneBuff;
 	ID3D12DescriptorHeap* _boneHeap = nullptr;
@@ -219,15 +238,27 @@ private:
 	std::string GetToonTexpathFromIndex(int idx, std::string folderpath);
 	std::string GetOriginToonTexpathFromIndex(int idx, std::string folderpath);
 
+	//モーション
+	void MotionUpdate(int flameNo);
+
+	std::vector<PMX_VMD_MOTION> _motions;
+	std::map<std::string, std::vector<PMX_VMD_MOTION>> _animation;
+	void RecursiveMatrixMultiply(BoneNodePMX& node, DirectX::XMMATRIX& inMat); //再起関数
+
+	float CreatBezier(float x, const DirectX::XMFLOAT2 & a, const DirectX::XMFLOAT2 & b, const unsigned int n = 16);
+	unsigned int flame;
+
 public:
 	PMXModel(const char * filepath, ID3D12Device* _dev);
 	~PMXModel();
 	void Update();
+	void Duration(float flame);
 	std::vector<PMXVertex> GetverticesData();
 	std::vector<unsigned int> GetindexData();
 	std::vector<Material> GetmatData();
 	ID3D12DescriptorHeap*& GetMatHeap();
 	ID3D12DescriptorHeap*& GetBoneHeap();
 	void InitBone(ID3D12Device* _dev);
+	void InitMotion(const char * filepath, ID3D12Device * _dev);
 };
 

@@ -26,7 +26,7 @@ Floor::~Floor()
 
 void Floor::InitVerticesFloor(ID3D12Device* _dev)
 {
-	auto edge = 30;
+	auto edge = 50;
 	VertexFloor floorvertices[] = {
 		XMFLOAT3(-edge,0,edge),XMFLOAT2(0,0),XMFLOAT3(0,1,0),		//床面 
 		XMFLOAT3(-edge, 0,-edge),XMFLOAT2(0, 1),XMFLOAT3(0,1,0),	//床面 
@@ -37,10 +37,10 @@ void Floor::InitVerticesFloor(ID3D12Device* _dev)
 	//床
 	auto result = _dev->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),	//CPUからGPUへ転送する用
-		D3D12_HEAP_FLAG_NONE,								//特別な指定なし
-		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(floorvertices)),	//サイズ
-		D3D12_RESOURCE_STATE_GENERIC_READ,					//よくわからない
-		nullptr,											//nullptrでいい
+		D3D12_HEAP_FLAG_NONE,								
+		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(floorvertices)),	
+		D3D12_RESOURCE_STATE_GENERIC_READ,					
+		nullptr,											
 		IID_PPV_ARGS(&_floorbuff));
 
 	VertexFloor* fBuffptr = nullptr;
@@ -50,7 +50,7 @@ void Floor::InitVerticesFloor(ID3D12Device* _dev)
 
 	_fvbView.BufferLocation = _floorbuff->GetGPUVirtualAddress();
 	_fvbView.SizeInBytes = sizeof(floorvertices);					//データ全体のサイズ
-	_fvbView.StrideInBytes = sizeof(VertexFloor);						//次のアドレスまでの距離//次のアドレスまでの距離
+	_fvbView.StrideInBytes = sizeof(VertexFloor);					//次のアドレスまでの距離//次のアドレスまでの距離
 }
 
 void Floor::InitShaders()
@@ -214,7 +214,6 @@ void Floor::InitPiplineState(ID3D12Device* _dev)
 	gpsDesc.SampleDesc.Count = 1;			//いる
 	gpsDesc.SampleDesc.Quality = 0;			//いる
 	gpsDesc.SampleMask = 0xffffffff;	//全部１
-										//gpsDesc.Flags;							//デフォルトでおけ
 
 	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 

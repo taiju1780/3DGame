@@ -15,35 +15,64 @@ cbuffer mat : register(b0)
 //定数レジスタ
 cbuffer Bones : register(b1)
 {
-    matrix boneMats[512];
+    matrix boneMatrices[512];
 }
 
 //出力
 struct Out
 {
-    float4 svpos : SV_POSITION;
     float4 pos : POSITION;
+    float4 svpos : SV_POSITION;
     float3 normal : NORMAL;
+    float3 vnormal : NORMAL1;
     float2 uv : TEXCOORD;
-    min16uint2 boneno : BONENO;
-    min16uint weight : WEIGHT;
+    float4 adduv : ADDUV0;
+    float4 adduv2 : ADDUV1;
+    float4 adduv3 : ADDUV2;
+    float4 adduv4 : ADDUV3;
+    min16uint weighttype : WEIGHT_TYPE;
+    int4 boneindex : BONEINDEX;
+    float4 weight : WEIGHT;
 };
 
 //頂点シェーダ
-Out vs(float4 pos : POSITION, float4 normal : NORMAL, float2 uv : TEXCOORD, min16uint2 boneno : BONENO, min16uint weight : WEIGHT)
+Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
+        float4 adduv : ADDUV0, float4 adduv2 : ADDUV1, float4 adduv3 : ADDUV2, float4 adduv4 : ADDUV3,
+            min16uint weighttype : WEIGHT_TYPE, int4 boneindex : BONEINDEX, float4 weight : WEIGHT)
 {
     Out o;
-    float w = weight / 100.0f;
-    matrix m = boneMats[boneno.x] * w + boneMats[boneno.y] * (1 - w);
+    
+    o.weighttype = weighttype;
 
-    pos = mul(m, pos);
+    matrix m = boneMatrices[boneindex.x];
 
-    o.pos = mul(world, pos);
-    o.svpos = mul(lvp, o.pos);
+    if (o.weighttype == 1)
+    {
+        m = boneMatrices[boneindex.x] * float(weight.x) + boneMatrices[boneindex.y] * (1 - float(weight.x));
+    }
+    else if (o.weighttype == 2)
+    {
+        m =
+        boneMatrices[boneindex.x] * float(weight.x) +
+        boneMatrices[boneindex.y] * float(weight.y) +
+        boneMatrices[boneindex.z] * float(weight.z) +
+        boneMatrices[boneindex.w] * float(weight.w);
+    }
+    else if (o.weighttype == 3)
+    {
+        m = boneMatrices[boneindex.x] * float(weight.x) + boneMatrices[boneindex.y] * (1 - float(weight.x));
+    }
+
+    pos = mul(m, float4(pos, 1));
+    o.pos = mul(world, float4(pos, 1));
+    o.svpos = mul(wvp, float4(pos, 1));
     o.uv = uv;
-    o.normal = mul(world, normal);
-    o.boneno = boneno;
+    o.normal = mul(world, float4(normal, 1));
+    o.vnormal = mul(world, float4(o.normal, 1));
     o.weight = weight;
+    o.boneindex = boneindex;
+    o.weighttype = weighttype;
+
     return o;
 }
 

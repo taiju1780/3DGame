@@ -132,10 +132,15 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 			fread(&_verticesData[i].wait[0], sizeof(_verticesData[i].wait[0]), 1, fp);
 		}
 		else if (waitnum == 2) {
-			for (int bw = 0; bw < 4; ++bw) {
-				fread(&_verticesData[i].bone[bw], boneidxsize, 1, fp);
-				fread(&_verticesData[i].wait[bw], sizeof(_verticesData[i].wait[bw]), 1, fp);
-			}
+			fread(&_verticesData[i].bone[0], boneidxsize, 1, fp);
+			fread(&_verticesData[i].bone[1], boneidxsize, 1, fp);
+			fread(&_verticesData[i].bone[2], boneidxsize, 1, fp);
+			fread(&_verticesData[i].bone[3], boneidxsize, 1, fp);
+			fread(&_verticesData[i].wait[0], sizeof(float), 1, fp);
+			fread(&_verticesData[i].wait[1], sizeof(float), 1, fp);
+			fread(&_verticesData[i].wait[2], sizeof(float), 1, fp);
+			fread(&_verticesData[i].wait[3], sizeof(float), 1, fp);
+			
 		}
 		else if (waitnum == 3) {
 			fread(&_verticesData[i].bone[0], boneidxsize, 1, fp);
@@ -240,6 +245,8 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 			str += c;
 		}
 		_bonename[idx] = str;
+
+		b.name = _bonename[idx];
 
 		//ボーン英名
 		fread(&bytenum, sizeof(bytenum), 1, fp);
@@ -515,47 +522,10 @@ void PMXModel::CreatModelTex(ID3D12Device * _dev)
 	}
 }
 
-void PMXModel::InitBone(ID3D12Device * _dev)
-{
-	_boneMatrices.resize(_boneData.size());
-
-	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
-
-	//ボーンバッファ
-	size_t size = sizeof(XMMATRIX) * _boneData.size();
-	size = (size + 0xff)&~0xff;
-
-	auto result = _dev->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(size),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&_boneBuff));
-
-	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
-	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	descHeapDesc.NodeMask = 0;
-	descHeapDesc.NumDescriptors = 1;
-	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-
-	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&_boneHeap));
-
-	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-	desc.BufferLocation = _boneBuff->GetGPUVirtualAddress();
-	desc.SizeInBytes = size;
-	auto handle = _boneHeap->GetCPUDescriptorHandleForHeapStart();
-	_dev->CreateConstantBufferView(&desc, handle);
-
-	result = _boneBuff->Map(0, nullptr, (void**)&mappedBoneMat);
-	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
-}
-
-
 void PMXModel::RotationBone(const std::string & boneName, const DirectX::XMFLOAT4 & q1, const DirectX::XMFLOAT4 & q2, float t)
 {
-	auto node = _boneDataInfo[StringToWStirng(boneName)];
-	auto vec = XMLoadFloat3(&node.second.pos);
+	auto node = _boneMap[StringToWStirng(boneName)];
+	auto vec = XMLoadFloat3(&node.startPos);
 	auto quaternion = XMLoadFloat4(&q1);
 	auto quaternion2 = XMLoadFloat4(&q2);
 
@@ -564,7 +534,7 @@ void PMXModel::RotationBone(const std::string & boneName, const DirectX::XMFLOAT
 	auto rota = XMMatrixRotationQuaternion(XMQuaternionSlerp(quaternion, quaternion2, t));
 	auto pararelMove2 = XMMatrixTranslationFromVector(vec);
 
-	_boneMatrices[node.first] = pararelMove * rota * pararelMove2;
+	_boneMatrices[node.boneidx] = pararelMove * rota * pararelMove2;
 }
 
 void PMXModel::InitMaterial(ID3D12Device * _dev)
@@ -896,23 +866,23 @@ std::wstring PMXModel::StringToWStirng(const std::string& str) {
 	auto ssize = MultiByteToWideChar(
 		CP_ACP,
 		MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
-		str.data(),
-		str.length(),
+		str.c_str(),
+		-1,
 		nullptr,
 		0
 	);
 
 	std::wstring wstr;
-	wstr.resize(ssize);
+	wstr.resize(ssize - 1);
 
 	ssize = MultiByteToWideChar(
 		CP_ACP,
 		MB_PRECOMPOSED | MB_ERR_INVALID_CHARS,
-		str.data(),
-		str.length(),
+		str.c_str(),
+		-1,
 		&wstr[0],
 		ssize);
-	assert(ssize == wstr.length());
+	//assert(ssize == wstr.length() - 1);
 	return wstr;
 }
 
@@ -946,6 +916,139 @@ std::string PMXModel::WStringToStirng(const std::wstring& wstr) {
 	return str;
 }
 
+void PMXModel::InitBone(ID3D12Device* _dev) {
+	flame = 30;
+
+	_boneMatrices.resize(_boneData.size());
+
+	//単位行列を返す
+	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
+
+	//マップ情報を構築
+	auto& mbones = _boneData;
+	for (int idx = 0; idx < mbones.size(); ++idx) {
+		auto& b = _boneData[idx];
+		auto& boneNode = _boneMap[b.name];
+		boneNode.boneidx = idx;
+		if (b.toboneidx < _boneData.size()) {
+			boneNode.startPos = b.pos;
+		}
+	}
+
+	for (auto& b : _boneMap) {
+		//次のボーンを見る
+		if (mbones[b.second.boneidx].parentbone >= mbones.size())continue;
+		auto parentName = mbones[mbones[b.second.boneidx].parentbone].name;
+		//親のボーンを検索して自分をプッシュする
+		_boneMap[parentName].children.push_back(&b.second);
+	}
+
+	//ボーンバッファ
+	size_t size = sizeof(XMMATRIX) * _boneData.size();
+	size = (size + 0xff)&~0xff;
+
+	auto result = _dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(size),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&_boneBuff));
+
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+	descHeapDesc.Flags						= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descHeapDesc.NodeMask					= 0;
+	descHeapDesc.NumDescriptors				= 1;
+	descHeapDesc.Type						= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+	result = _dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&_boneHeap));
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+	desc.BufferLocation = _boneBuff->GetGPUVirtualAddress();
+	desc.SizeInBytes = size;
+	auto handle = _boneHeap->GetCPUDescriptorHandleForHeapStart();
+	_dev->CreateConstantBufferView(&desc, handle);
+
+	result = _boneBuff->Map(0, nullptr, (void**)&mappedBoneMat);
+	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
+}
+
+void PMXModel::InitMotion(const char* filepath, ID3D12Device* _dev)
+{
+	FILE* f;
+	fopen_s(&f, filepath, "rb");
+	fseek(f, 50, SEEK_SET);//最初の５０は無駄データ
+
+	unsigned int Vnum = 0;
+	fread(&Vnum, sizeof(Vnum), 1, f);
+
+	_motions.resize(Vnum);
+
+	for (auto &_m : _motions) {
+		fread(&_m.BoneName, sizeof(_m.BoneName), 1, f);
+		fread(&_m.FlameNo, sizeof(_m.FlameNo), 1, f);
+		fread(&_m.Location, sizeof(_m.Location), 1, f);
+		fread(&_m.quaternion, sizeof(_m.quaternion), 1, f);
+		fread(&_m.Interpolation, sizeof(_m.Interpolation), 1, f);
+	}
+
+	std::sort(_motions.begin(), _motions.end(), [](PMX_VMD_MOTION&a, PMX_VMD_MOTION&b) {return a.FlameNo < b.FlameNo; });
+
+	for (auto &f : _motions) {
+		auto& interpolation = f.Interpolation;
+		auto ax = interpolation[48];
+		auto ay = interpolation[52];
+		auto bx = interpolation[56];
+		auto by = interpolation[60];
+		f.bz1 = DirectX::XMFLOAT2(static_cast<float>(ax) / 127.f, static_cast<float>(ay) / 127.f);
+		f.bz2 = DirectX::XMFLOAT2(static_cast<float>(bx) / 127.f, static_cast<float>(by) / 127.f);
+		_animation[f.BoneName].emplace_back(f);
+		//duration = max(f.FlameNo, duration);
+	}
+	fclose(f);
+}
+
+void PMXModel::RecursiveMatrixMultiply(BoneNodePMX & node, DirectX::XMMATRIX & inMat)
+{
+	_boneMatrices[node.boneidx] *= inMat;
+	for (auto &bnode : node.children) {
+		RecursiveMatrixMultiply(*bnode, _boneMatrices[node.boneidx]);
+	}
+}
+
+float PMXModel::CreatBezier(float x, const DirectX::XMFLOAT2 & a, const DirectX::XMFLOAT2 & b, const unsigned int n)
+{
+	if (a.x == a.y && b.x == b.y)return x;	//この場合式は直線なのでｘをかえす
+
+	float t = x;							//はじめはtはｘと同じでよい
+
+	float k0 = 1 + 3 * a.x - 3 * b.x;		//係数０
+
+	float k1 = 3 * b.x - 6 * a.x;			//係数１
+
+	float k2 = 3 * a.x;						//係数２
+
+	const float epsilon = 0.0005f;			//誤差の範囲
+
+	for (int i = 0; i < n; i++) {
+
+		float r = (1 - t);
+
+		float ft = (t*t*t)*k0 + (t*t)*k1 + t * k2 - x;		//f(t)高さを求める
+
+		if (ft <= epsilon && ft >= epsilon)break;			//誤差の範囲内なら打ち切る
+
+		float fdt = 3 * (t*t) * k0 + 2 * t * k1 + 3 * k2;	//f'tのこと,ftの微分結果
+
+		if (fdt == 0)break;									//0徐算の場合打ち切る
+
+		t = t - ft / fdt;									//ニュートン法により答えを近づけていく
+	}
+	float r = (1 - t);
+	//tが求まったのでyを計算していく
+	return (3 * r * r * t * a.y) + (3 * r * t * t * b.y) + (t * t * t);
+}
+
 PMXModel::PMXModel(const char * filepath,ID3D12Device* _dev)
 {
 	CreateGraduation(_dev);
@@ -962,19 +1065,46 @@ PMXModel::~PMXModel()
 
 void PMXModel::Update()
 {
+	static auto lasttime = GetTickCount();
+
 	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
-	std::string str = "右ひじ";
-
-	auto node = _boneDataInfo[StringToWStirng(str)];
-	auto vec = XMLoadFloat3(&node.second.pos);
-
-	//平行移動
-	auto pararelMove = XMMatrixTranslationFromVector(XMVectorScale(vec, -1));
-	auto rota = XMMatrixRotationQuaternion(XMQuaternionRotationMatrix(XMMatrixRotationZ(XM_PIDIV4)));
-	auto pararelMove2 = XMMatrixTranslationFromVector(vec);
-	
-	_boneMatrices[node.first] = pararelMove * rota * pararelMove2;
-
+	Duration(static_cast<float>(GetTickCount() - lasttime) / 33.33333f);
 	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
+
+	if (GetTickCount() - lasttime > flame++ * 33.33333f) {
+		lasttime = GetTickCount();
+	}
+	
+}
+
+void PMXModel::Duration(float flame) 
+{
+	//初期化
+	MotionUpdate(flame);
+}
+
+void PMXModel::MotionUpdate(int flameNo)
+{
+	for (auto &anim : _animation) {
+		auto &keyflames = anim.second;
+		auto flameIt = std::find_if(keyflames.rbegin(), keyflames.rend(),
+			[flameNo](const PMX_VMD_MOTION& motion) {return motion.FlameNo <= flameNo; });
+		if (flameIt == keyflames.rend())continue;
+		auto nextIt = flameIt.base();
+		if (nextIt == keyflames.end()) {
+			RotationBone(anim.first.c_str(), flameIt->quaternion);
+		}
+		else {
+			auto a = flameIt->FlameNo;
+			auto b = nextIt->FlameNo;
+			auto t = (static_cast<float>(flameNo) - a) / (b - a);
+			//線形補間により腕の長さを調整している(しないと短くなる)
+			t = CreatBezier(t, nextIt->bz1, nextIt->bz2);
+			RotationBone(anim.first.c_str(), flameIt->quaternion, nextIt->quaternion, t);
+		}
+	}
+	//ツリーをトラバース
+	XMMATRIX rootmat = XMMatrixIdentity();
+	RecursiveMatrixMultiply(_boneMap[L"センター"], rootmat);
 }
 

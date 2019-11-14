@@ -295,22 +295,22 @@ void Wrapper::InitPipeline()
 		{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},	
 
 		//追加UV
-		//{"ADDUV",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		{"ADDUV",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
-		//{"ADDUV",1,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		{"ADDUV",1,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
-		//{"ADDUV",2,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		{"ADDUV",2,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
-		//{"ADDUV",3,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		{"ADDUV",3,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
-		////ウェイトタイプ
-		//{"WEIGHT_TYPE",0,DXGI_FORMAT_R32_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+		//ウェイトタイプ
+		{"WEIGHT_TYPE",0,DXGI_FORMAT_R8_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 
-		////ボーンイデックス
-		//{"BONEINDEX",0,DXGI_FORMAT_R32G32B32A32_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+		//ボーンイデックス
+		{"BONEINDEX",0,DXGI_FORMAT_R32G32B32A32_SINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
-		////ウェイト
-		//{"WEIGHT",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 }
+		//ウェイト
+		{"WEIGHT",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 }
 	};
 
 
@@ -951,6 +951,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	//_model->InitMotion(mfilepath,_dev);
 
+	_pmxModel->InitMotion(mfilepath,_dev);
+
 	//_model->InitBone(_dev);
 
 	_pmxModel->InitBone(_dev);
@@ -999,22 +1001,28 @@ void Wrapper::Update()
 
 	auto heapStart = _rtv1stDescHeap->GetCPUDescriptorHandleForHeapStart();
 
-	float clearColor[] = { 0.8f,0.8f,0.8f,1.0f };
+	float clearColor[] = { 0,0,0.5f,1.0f };
 	
 	auto bbidx = _swapchain->GetCurrentBackBufferIndex();
 	auto rtvHeapSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	//コマンドのリセット
 	auto result = _cmdAllocator->Reset();
-	result = _cmdList->Reset(_cmdAllocator, nullptr);
+	result = _cmdList->Reset(_cmdAllocator, _pipeline);
 
-	//DrawLightView();
+	DrawLightView();
 
 	//パイプラインのセット
 	_cmdList->SetPipelineState(_pipeline);
 
 	//ルートシグネチャのセット
 	_cmdList->SetGraphicsRootSignature(_rootSignature);
+
+	_viewport.Width = _1stPathBuff->GetDesc().Width;
+	_viewport.Height = _1stPathBuff->GetDesc().Height;
+
+	_scissorRect.right = _1stPathBuff->GetDesc().Width;;
+	_scissorRect.bottom = _1stPathBuff->GetDesc().Height;
 
 	_cmdList->RSSetViewports(1, &_viewport);
 	_cmdList->RSSetScissorRects(1, &_scissorRect);
@@ -1036,6 +1044,9 @@ void Wrapper::Update()
 	//深度バッファをクリア
 	_cmdList->ClearDepthStencilView(_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 	
+	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
+	_cmdList->IASetIndexBuffer(&_idxbView);
+
 	//CBVデスクリプタヒープ設定
 	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
 	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
@@ -1048,9 +1059,6 @@ void Wrapper::Update()
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//モデル表示
-	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
-	_cmdList->IASetIndexBuffer(&_idxbView);
-
 	//_cmdList->SetDescriptorHeaps(1, &_model->GetMatHeap());
 	_cmdList->SetDescriptorHeaps(1, &_pmxModel->GetMatHeap());
 
@@ -1076,12 +1084,12 @@ void Wrapper::Update()
 		offset += m.face_vert_cnt;
 	}
 
+	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
 	//床
 	_cmdList->SetPipelineState(_floor->_GetPipeline());
 	_cmdList->SetGraphicsRootSignature(_floor->GetRootSignature());
 	
-	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
-	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	//shadow用
 	_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
@@ -1151,8 +1159,8 @@ void Wrapper::PeraUpdate()
 	_cmdList->SetDescriptorHeaps(1, &_srv1stDescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(0, _srv1stDescHeap->GetGPUDescriptorHandleForHeapStart());
 
-	//_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
-	//_cmdList->SetGraphicsRootDescriptorTable(0, _shadow->GetSrvHeap()->GetGPUDescriptorHandleForHeapStart());
+	_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(1, _shadow->GetSrvHeap()->GetGPUDescriptorHandleForHeapStart());
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
