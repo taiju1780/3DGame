@@ -79,5 +79,8 @@
     <FxCompile Include="shadow.hlsl">
       <Filter>リソース ファイル</Filter>
     </FxCompile>
+    <FxCompile Include="Multipath2.hlsl">
+      <Filter>リソース ファイル</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

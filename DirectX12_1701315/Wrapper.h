@@ -117,10 +117,6 @@ private:
 	D3D12_VERTEX_BUFFER_VIEW _1stvbView = {};
 	ID3D12Resource* _peraBuff;
 
-	D3D12_VIEWPORT _1stPathviewport;
-	D3D12_RECT _1stPathscissorRect;
-
-
 	//１パス目に使用するレンダリングバッファ
 	ID3D12Resource* _1stPathBuff;
 	ID3D12DescriptorHeap* _rtv1stDescHeap = nullptr;		//RTV(レンダーターゲット)デスクリプタヒープ
@@ -136,6 +132,26 @@ private:
 	void InitVerticesPera();
 	void InitPath1stRootSignature();
 
+
+	//ペラ2ポリ
+	D3D12_VERTEX_BUFFER_VIEW _2ndvbView = {};
+	ID3D12Resource* _pera2Buff;
+
+	//2パス目に使用するレンダリングバッファ
+	ID3D12Resource* _2ndPathBuff;
+	ID3D12DescriptorHeap* _rtv2ndDescHeap = nullptr;		//RTV(レンダーターゲット)デスクリプタヒープ
+	ID3D12DescriptorHeap *_srv2ndDescHeap = nullptr;		//その他(テクスチャ、定数)デスクリプタヒープ
+
+	ID3DBlob* pera2vertexShader = nullptr;
+	ID3DBlob* pera2pixelShader = nullptr;
+
+	ID3D12PipelineState* _pera2pipeline = nullptr;
+	ID3D12RootSignature* _pera2rootsigunature = nullptr;
+
+	void InitPath2ndRTVSRV();
+	void InitVertices2Pera();
+	void InitPath2ndRootSignature();
+
 	//影
 	void DrawLightView();
 
@@ -144,5 +160,6 @@ public:
 	~Wrapper();
 	void Update();
 	void PeraUpdate();
+	void Pera2Update();
 };
 

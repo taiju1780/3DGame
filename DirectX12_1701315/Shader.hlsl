@@ -129,12 +129,37 @@ float4 ps(Out o) : SV_Target
     //return saturate(float4(tex.Sample(smp, o.uv)) * toonDif * diffuse);
     
     //表示
-    return saturate(
-            toonDif
-            * diffuse
-            * tex.Sample(smp, o.uv)
-            * sph.Sample(smp, normalUV))
-            + saturate(float4(spec * specular.rgb, 1))
-            + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
+    //return saturate(
+    //        toonDif
+    //        * diffuse
+    //        * tex.Sample(smp, o.uv)
+    //        * sph.Sample(smp, normalUV))
+    //        + saturate(float4(spec * specular.rgb, 1))
+    //        + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
+    
+    //輝度値
+    float3 b = float3(0.298912f, 0.586611f, 0.114478f);
+
+    float w, h, level;
+    tex.GetDimensions(0, w, h, level);
+    float dx = 1.0f / w; //一ピクセル分
+    float dy = 1.0f / h; //一ピクセル分
+
+    float4 ret = tex.Sample(smp, o.uv);
+    ret = ret * 6
+    - tex.Sample(smp, o.uv + float2(-dx, 0)) * -2
+    - tex.Sample(smp, o.uv + float2(dx, 0)) * 2
+    - tex.Sample(smp, o.uv + float2(-dx, dy)) * -1;
+    - tex.Sample(smp, o.uv + float2(dx, dy)) * 1;
+    - tex.Sample(smp, o.uv + float2(-dx, -dy)) * -1
+    - tex.Sample(smp, o.uv + float2(dx, -dy)) * 1;
+
+    //線を黒周りを白にしたいので反転させる
+    float brightnass = dot(b.rgb, ret.rgb);
+
+    //線を強調
+    brightnass = pow(brightnass, 100);
+
+    return float4(brightnass, brightnass, brightnass, 1);
 
 }

@@ -60,19 +60,19 @@ float4 ps(Output input) : SV_Target
     //ü‰æ
     //l‰æ‘f•ªˆê‹C‚É‚â‚é
     //—×‚è‡‚¤‰æ‘f‚Æ‚Ì·•ª‚ğ’²‚×‚é
-    ret = ret * 4
-    - tex.Sample(smp, input.uv + float2(-dx, 0))
-    - tex.Sample(smp, input.uv + float2(dx, 0))
-    - tex.Sample(smp, input.uv + float2(0, dy))
-    - tex.Sample(smp, input.uv + float2(0, -dy));
+    //ret = ret * 4
+    //- tex.Sample(smp, input.uv + float2(-dx, 0))
+    //- tex.Sample(smp, input.uv + float2(dx, 0))
+    //- tex.Sample(smp, input.uv + float2(0, dy))
+    //- tex.Sample(smp, input.uv + float2(0, -dy));
 
-    //ü‚ğ•ü‚è‚ğ”’‚É‚µ‚½‚¢‚Ì‚Å”½“]‚³‚¹‚é
-    float brightnass = dot(b.rgb, 1 - ret.rgb);
+    ////ü‚ğ•ü‚è‚ğ”’‚É‚µ‚½‚¢‚Ì‚Å”½“]‚³‚¹‚é
+    //float brightnass = dot(b.rgb, 1 - ret.rgb);
 
-    //ü‚ğ‹­’²
-    brightnass = pow(brightnass, 10);
+    ////ü‚ğ‹­’²
+    //brightnass = pow(brightnass, 10);
 
-    return float4(brightnass, brightnass, brightnass, 1);
+    //return float4(brightnass, brightnass, brightnass, 1);
 
     ////ƒ|ƒXƒ^ƒŠƒ[[ƒVƒ‡ƒ“
 
@@ -83,11 +83,11 @@ float4 ps(Output input) : SV_Target
 
    
     //”½“]
-    //if (input.uv.y < 0.6 && input.uv.y > 0.4)
-    //{
-    //    float4 col = tex.Sample(smp, input.uv);
-    //    return float4(1 - col.rgb, col.a);
-    //}
+    if (input.uv.y < 0.6 && input.uv.y > 0.4)
+    {
+        float4 col = tex.Sample(smp, input.uv);
+        return float4(1 - col.rgb, col.a);
+    }
 
     //’Êí
     return ret;
