@@ -1003,7 +1003,6 @@ void PMXModel::InitMotion(const char* filepath, ID3D12Device* _dev)
 		f.bz1 = DirectX::XMFLOAT2(static_cast<float>(ax) / 127.f, static_cast<float>(ay) / 127.f);
 		f.bz2 = DirectX::XMFLOAT2(static_cast<float>(bx) / 127.f, static_cast<float>(by) / 127.f);
 		_animation[f.BoneName].emplace_back(f);
-		//duration = max(f.FlameNo, duration);
 	}
 	fclose(f);
 }

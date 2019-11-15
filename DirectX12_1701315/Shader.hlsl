@@ -107,7 +107,7 @@ float4 ps(Out o) : SV_Target
     float3 up = float3(0, 1, 0);
 
     //ライト
-    float3 light = normalize(float3(1, -1, 1));
+    float3 light = normalize(float3(10, -20, 10));
 
     //正規化後クランプ
     light = normalize(light);

@@ -65,7 +65,7 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
 
     pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));
-    o.svpos = mul(wvp, float4(pos, 1));
+    o.svpos = mul(lvp, float4(pos, 1));
     o.uv = uv;
     o.normal = mul(world, float4(normal, 1));
     o.vnormal = mul(world, float4(o.normal, 1));

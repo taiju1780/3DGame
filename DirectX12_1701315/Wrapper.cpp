@@ -935,15 +935,16 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	//モーション(アクション)
 	//const char* mfilepath = ("Motion/pose.vmd");
-	const char* mfilepath = ("Motion/swing2.vmd");
+	//const char* mfilepath = ("Motion/swing2.vmd");
 	//const char* mfilepath = ("Motion/charge.vmd.vmd");
 	//const char* mfilepath = ("Motion/first.vmd");
 
 	//モーション(ダンス)
 	//const char* mfilepath = ("Motion/ELECTモーション_小さめ身長用.vmd");
-	//const char* mfilepath = ("Motion/ストロボナイツモーション.vmd");
+	const char* mfilepath = ("Motion/ストロボナイツモーション.vmd");
 	//const char* mfilepath = ("Motion/えれくとりっくえんじぇぅ.vmd");
 	//const char* mfilepath = ("Motion/ヤゴコロダンス.vmd");
+	//const char* mfilepath = ("Motion/lamb足ボーン長い人用.vmd");
 
 	_model.reset(new PMDModel(cfilepath,_dev));
 
