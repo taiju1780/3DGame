@@ -1,8 +1,10 @@
 #pragma once
 #include<vector>
 #include<map>
+#include<memory>
 #include<array>
 #include<DirectXMath.h>
+#include "Camera.h"
 #include <dxgi1_6.h>
 #include <d3d12.h>
 
@@ -248,17 +250,56 @@ private:
 	float CreatBezier(float x, const DirectX::XMFLOAT2 & a, const DirectX::XMFLOAT2 & b, const unsigned int n = 16);
 	unsigned int flame;
 
+	//初期化類//シェーダ関連
+	ID3DBlob* vertexShader = nullptr;
+	ID3DBlob* pixelShader = nullptr;
+
+	//ルートシグネチャー
+	ID3D12RootSignature* _rootSignature = nullptr;
+	void InitRootSignature(ID3D12Device* _dev);
+
+	//パイプライン
+	ID3D12PipelineState* _pipeline = nullptr;
+	void InitPipeline(ID3D12Device* _dev);
+
+	//ビューポート、シザー
+	D3D12_VIEWPORT _viewport;
+	D3D12_RECT _scissorRect;
+
+	//深度
+	void InitDescriptorHeapDSV(ID3D12Device* _dev);
+	ID3D12Resource* _dsvBuff;
+	ID3D12DescriptorHeap* _dsvHeap = nullptr;
+	ID3D12DescriptorHeap* _depthSrvHeap = nullptr;
+
+	//頂点情報
+	void InitModelVertices(ID3D12Device * _dev); 
+	ID3D12Resource* _indexBuffer = nullptr;
+	D3D12_INDEX_BUFFER_VIEW _idxbView = {};
+
+	ID3D12Resource* _vertexBuffer = nullptr;
+	D3D12_VERTEX_BUFFER_VIEW _vbView = {};
+
+	ID3D12Resource* _vertexModelBuffer = nullptr;
+	ID3D12Resource* _indexModelBuffer = nullptr; 
+
 public:
 	PMXModel(const char * filepath, ID3D12Device* _dev);
 	~PMXModel();
 	void Update();
 	void Duration(float flame);
-	std::vector<PMXVertex> GetverticesData();
-	std::vector<unsigned int> GetindexData();
-	std::vector<Material> GetmatData();
 	ID3D12DescriptorHeap*& GetMatHeap();
 	ID3D12DescriptorHeap*& GetBoneHeap();
+	void InitModel(ID3D12Device* _dev);
 	void InitBone(ID3D12Device* _dev);
 	void InitMotion(const char * filepath, ID3D12Device * _dev);
+
+	ID3D12RootSignature*& GetRootSignature();
+
+	ID3D12PipelineState*& GetPipeline();
+
+	void InitShader();
+
+	void Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std::shared_ptr<Camera> _camera, ID3D12DescriptorHeap* _rtv1stDescHeap);
 };
 

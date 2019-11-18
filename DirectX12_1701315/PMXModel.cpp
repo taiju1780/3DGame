@@ -1,4 +1,5 @@
 #include "PMXModel.h"
+#include "Application.h"
 #include <iostream>
 #include <DirectXMath.h>
 #include <DirectXTex.h>
@@ -7,6 +8,7 @@
 #include <d3dcompiler.h>
 #include <vector>
 #include<Shlwapi.h> 
+#include "Wrapper.h"
 
 //リンク
 #pragma comment(lib,"d3d12.lib")
@@ -709,21 +711,6 @@ void PMXModel::InitToon(std::string path, ID3D12Device * _dev, size_t idx) {
 	}
 }
 
-std::vector<PMXVertex> PMXModel::GetverticesData()
-{
-	return _verticesData;
-}
-
-std::vector<unsigned int> PMXModel::GetindexData()
-{
-	return _indexData;
-}
-
-std::vector<Material> PMXModel::GetmatData()
-{
-	return _matData;
-}
-
 ID3D12DescriptorHeap*& PMXModel::GetMatHeap()
 {
 	return _matHeap;
@@ -732,6 +719,13 @@ ID3D12DescriptorHeap*& PMXModel::GetMatHeap()
 ID3D12DescriptorHeap *& PMXModel::GetBoneHeap()
 {
 	return _boneHeap;
+}
+
+void PMXModel::InitModel(ID3D12Device * _dev)
+{
+	InitDescriptorHeapDSV(_dev);
+	InitRootSignature(_dev);
+	InitPipeline(_dev);
 }
 
 void PMXModel::CreateWhiteTexture(ID3D12Device* _dev)
@@ -1046,6 +1040,378 @@ float PMXModel::CreatBezier(float x, const DirectX::XMFLOAT2 & a, const DirectX:
 	float r = (1 - t);
 	//tが求まったのでyを計算していく
 	return (3 * r * r * t * a.y) + (3 * r * t * t * b.y) + (t * t * t);
+}
+
+void PMXModel::InitShader()
+{
+	auto wsize = Application::GetInstance().GetWIndowSize();
+
+	//モデル用シェーダ
+	auto result = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr, "vs", "vs_5_0", 0, 0, &vertexShader, nullptr);
+	result = D3DCompileFromFile(L"Shader.hlsl", nullptr, nullptr, "ps", "ps_5_0", 0, 0, &pixelShader, nullptr);
+
+	//ビューポート設定
+	_viewport.TopLeftX = 0;
+	_viewport.TopLeftY = 0;
+	_viewport.Width = wsize.w;
+	_viewport.Height = wsize.h;
+	_viewport.MaxDepth = 1.0f;
+	_viewport.MinDepth = 0.0f;
+
+	//シザー(切り取り)矩形
+	_scissorRect.left = 0;
+	_scissorRect.top = 0;
+	_scissorRect.right = wsize.w;
+	_scissorRect.bottom = wsize.h;
+}
+
+void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std::shared_ptr<Camera> _camera, ID3D12DescriptorHeap* _rtv1stDescHeap)
+{
+	float clearColor[] = { 0,0,0.5f,1.0f };
+
+	auto heapStart = _rtv1stDescHeap->GetCPUDescriptorHandleForHeapStart();
+
+	//レンダーターゲット設定
+	_cmdList->OMSetRenderTargets(1, &heapStart, false, &_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	//クリアレンダーターゲット
+	_cmdList->ClearRenderTargetView(heapStart, clearColor, 0, nullptr);
+
+	//深度バッファをクリア
+	_cmdList->ClearDepthStencilView(_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
+
+	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
+	_cmdList->IASetIndexBuffer(&_idxbView);
+
+	//CBVデスクリプタヒープ設定
+	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
+	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
+
+	//ボーンヒープセット
+	_cmdList->SetDescriptorHeaps(1, &_boneHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(2, _boneHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//頂点セット
+	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	//モデル表示
+	_cmdList->SetDescriptorHeaps(1, &_matHeap);
+
+	unsigned int offset = 0;
+
+	auto mathandle = _matHeap->GetGPUDescriptorHandleForHeapStart();
+
+	auto incriment_size =
+		_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 5;
+
+
+	for (auto& m : _matData) {
+		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);
+		mathandle.ptr += incriment_size;
+		_cmdList->DrawIndexedInstanced(m.face_vert_cnt, 1, offset, 0, 0);
+		offset += m.face_vert_cnt;
+	}
+}
+
+void PMXModel::InitModelVertices(ID3D12Device* _dev)
+{
+	/*auto vdata = _model->GetverticesData();
+	auto idata = _model->GetindexData();*/
+
+	auto vdata = _verticesData;
+	auto idata = _indexData;
+
+	//verticesバッファ作成
+	auto result = _dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(vdata.size() * sizeof(vdata[0])),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&_vertexModelBuffer)
+	);
+
+	//マップ
+	D3D12_RANGE range = { 0,0 };
+	//PMDvertex* _vBufferptr = nullptr;
+	PMXVertex* _vBufferptr = nullptr;
+
+	_vertexModelBuffer->Map(0, &range, (void**)&_vBufferptr);
+	std::copy(vdata.begin(), vdata.end(), _vBufferptr);
+	_vertexModelBuffer->Unmap(0, nullptr);
+
+	_vbView.BufferLocation = _vertexModelBuffer->GetGPUVirtualAddress();
+	_vbView.SizeInBytes = vdata.size() * sizeof(vdata[0]);
+	_vbView.StrideInBytes = sizeof(vdata[0]);
+
+	//インデックスバッファ作成
+	result = _dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(idata.size() * sizeof(idata[0])),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&_indexModelBuffer)
+	);
+
+	//マップ
+	unsigned short* Buffptr = nullptr;
+	result = _indexModelBuffer->Map(0, &range, (void**)&Buffptr);
+
+	std::copy(idata.begin(), idata.end(), Buffptr);
+	_indexModelBuffer->Unmap(0, nullptr);
+
+	_idxbView.BufferLocation = _indexModelBuffer->GetGPUVirtualAddress();
+	_idxbView.SizeInBytes = idata.size() * sizeof(unsigned short);
+	_idxbView.Format = DXGI_FORMAT_R16_UINT;
+}
+
+void PMXModel::InitRootSignature(ID3D12Device * _dev)
+{
+	//サンプラ
+	D3D12_STATIC_SAMPLER_DESC samplerDesc[2] = {};
+	samplerDesc[0].AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc[0].BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;//エッジの色
+	samplerDesc[0].Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
+	samplerDesc[0].MaxLOD = D3D12_FLOAT32_MAX;
+	samplerDesc[0].MinLOD = 0.0f;
+	samplerDesc[0].MipLODBias = 0.0f;
+	samplerDesc[0].ShaderRegister = 0;
+	samplerDesc[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;//どのくらいシェーダに見せるか
+	samplerDesc[0].RegisterSpace = 0;
+	samplerDesc[0].MaxAnisotropy = 0;
+	samplerDesc[0].ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+
+	samplerDesc[1] = samplerDesc[0];
+	samplerDesc[1].AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc[1].ShaderRegister = 1;
+
+	ID3DBlob* signature = nullptr;//ID3D12Blob=メモリオブジェクト
+	ID3DBlob* error = nullptr;
+
+	D3D12_DESCRIPTOR_RANGE descTblRange[4] = {};
+	D3D12_ROOT_PARAMETER rootParam[3] = {};
+
+	//デスクリプタレンジの設定
+	//座標変換定数バッファ
+	descTblRange[0].BaseShaderRegister = 0;//レジスタ番号
+	descTblRange[0].NumDescriptors = 1;
+	descTblRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descTblRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//マテリアル用定数バッファ
+	descTblRange[1].BaseShaderRegister = 1;//レジスタ番号
+	descTblRange[1].NumDescriptors = 1;
+	descTblRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descTblRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//テクスチャ用バッファ(SRV){基本、sph、spa、toon}
+	descTblRange[2].BaseShaderRegister = 0;//レジスタ番号
+	descTblRange[2].NumDescriptors = 4;
+	descTblRange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblRange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//ボーン用定数バッファ
+	descTblRange[3].BaseShaderRegister = 2;//レジスタ番号
+	descTblRange[3].NumDescriptors = 1;
+	descTblRange[3].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descTblRange[3].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//paramの設定
+	//座標変換
+	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParam[0].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[0].DescriptorTable.pDescriptorRanges = &descTblRange[0];
+
+	//マテリアル＋テクスチャ
+	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParam[1].DescriptorTable.NumDescriptorRanges = 2;
+	rootParam[1].DescriptorTable.pDescriptorRanges = &descTblRange[1];
+
+	//ボーン用
+	rootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	rootParam[2].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[2].DescriptorTable.pDescriptorRanges = &descTblRange[3];
+
+	//ルートシグネチャ
+	D3D12_ROOT_SIGNATURE_DESC rsd = {};
+	rsd.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rsd.pParameters = rootParam;
+	rsd.pStaticSamplers = samplerDesc;
+	rsd.NumParameters = 3;
+	rsd.NumStaticSamplers = 2;
+
+	auto result = D3D12SerializeRootSignature(
+		&rsd,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		&signature,
+		&error
+	);
+
+	result = _dev->CreateRootSignature(
+		0,
+		signature->GetBufferPointer(),
+		signature->GetBufferSize(),
+		IID_PPV_ARGS(&_rootSignature));
+}
+
+ID3D12RootSignature *& PMXModel::GetRootSignature()
+{
+	return _rootSignature;
+}
+
+void PMXModel::InitPipeline(ID3D12Device* _dev)
+{
+	D3D12_INPUT_ELEMENT_DESC layout[] = {
+		{"POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+
+		{"NORMAL",0,DXGI_FORMAT_R32G32B32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+
+		{"TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+
+		//追加UV
+		{"ADDUV",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+
+		{"ADDUV",1,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+
+		{"ADDUV",2,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+
+		{"ADDUV",3,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+
+		//ウェイトタイプ
+		{"WEIGHT_TYPE",0,DXGI_FORMAT_R8_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+
+		//ボーンイデックス
+		{"BONEINDEX",0,DXGI_FORMAT_R32G32B32A32_SINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
+
+		//ウェイト
+		{"WEIGHT",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 }
+	};
+
+
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
+
+	//ルートシグネチャと頂点レイアウト
+	gpsDesc.pRootSignature = _rootSignature;
+	gpsDesc.InputLayout.pInputElementDescs = layout;
+	gpsDesc.InputLayout.NumElements = _countof(layout);
+
+	//シェーダ
+	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
+	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
+
+	//レンダーターゲット
+	gpsDesc.NumRenderTargets = 1;
+	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	//深度ステンシル
+	gpsDesc.DepthStencilState.DepthEnable = true;
+	gpsDesc.DepthStencilState.StencilEnable = false;
+	gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+
+	//ラスタライザ
+	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	gpsDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+	gpsDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+
+	D3D12_RENDER_TARGET_BLEND_DESC renderBlDesc = {};
+	renderBlDesc.BlendEnable = true;
+	renderBlDesc.BlendOp = D3D12_BLEND_OP_ADD;
+	renderBlDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
+	renderBlDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
+	renderBlDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
+	renderBlDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
+	renderBlDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
+	renderBlDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+
+	//αブレンド
+	D3D12_BLEND_DESC BlendDesc = {};
+	BlendDesc.AlphaToCoverageEnable = false;
+	BlendDesc.IndependentBlendEnable = false;
+	BlendDesc.RenderTarget[0] = renderBlDesc;
+
+	//その他
+	gpsDesc.BlendState = BlendDesc;
+	gpsDesc.NodeMask = 0;
+	gpsDesc.SampleDesc.Count = 1;
+	gpsDesc.SampleDesc.Quality = 0;
+	//gpsDesc.SampleMask			= 0xffffffff;
+	gpsDesc.SampleMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+	auto result = _dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&_pipeline));
+}
+
+ID3D12PipelineState *& PMXModel::GetPipeline()
+{
+	return _pipeline;
+}
+
+void PMXModel::InitDescriptorHeapDSV(ID3D12Device* _dev)
+{
+	auto &app = Application::GetInstance();
+
+	//デスクリプターヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC _dsvDesc = {};
+	_dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	_dsvDesc.NodeMask = 0;
+	_dsvDesc.NumDescriptors = 1;
+	_dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+
+	auto result = _dev->CreateDescriptorHeap(&_dsvDesc, IID_PPV_ARGS(&_dsvHeap));
+
+	//深度バッファ
+	D3D12_HEAP_PROPERTIES heappropDsv = {};
+	heappropDsv.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heappropDsv.CreationNodeMask = 0;
+	heappropDsv.VisibleNodeMask = 0;
+	heappropDsv.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	heappropDsv.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+	D3D12_RESOURCE_DESC dsvDesc = {};
+	dsvDesc.Alignment = 0;
+	dsvDesc.Width = app.GetWIndowSize().w;
+	dsvDesc.Height = app.GetWIndowSize().h;
+	dsvDesc.DepthOrArraySize = 1;
+	dsvDesc.MipLevels = 0;
+	dsvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	dsvDesc.SampleDesc.Count = 1;
+	dsvDesc.SampleDesc.Quality = 0;
+	dsvDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	dsvDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	dsvDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+	//クリアバリュー
+	D3D12_CLEAR_VALUE clearValue;
+	clearValue.DepthStencil.Depth = 1.0f;
+	clearValue.DepthStencil.Stencil = 0;
+	clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+
+	result = _dev->CreateCommittedResource(
+		&heappropDsv,
+		D3D12_HEAP_FLAG_NONE,
+		&dsvDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&clearValue,
+		IID_PPV_ARGS(&_dsvBuff));
+
+	//深度バッファービュー
+	D3D12_DEPTH_STENCIL_VIEW_DESC _dsvVDesc = {};
+	_dsvVDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	_dsvVDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	_dsvVDesc.Texture2D.MipSlice = 0;
+	_dsvVDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+	_dev->CreateDepthStencilView(_dsvBuff, &_dsvVDesc, _dsvHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 PMXModel::PMXModel(const char * filepath,ID3D12Device* _dev)
