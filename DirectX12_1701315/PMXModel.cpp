@@ -721,8 +721,25 @@ ID3D12DescriptorHeap *& PMXModel::GetBoneHeap()
 	return _boneHeap;
 }
 
+std::vector<Material> PMXModel::GetMatData()
+{
+	return _matData;
+}
+
+D3D12_INDEX_BUFFER_VIEW PMXModel::GetidxbView()
+{
+	return _idxbView;
+}
+
+D3D12_VERTEX_BUFFER_VIEW PMXModel::GetvView()
+{
+	return _vbView;
+}
+
 void PMXModel::InitModel(ID3D12Device * _dev)
 {
+	InitShader();
+	InitModelVertices(_dev);
 	InitDescriptorHeapDSV(_dev);
 	InitRootSignature(_dev);
 	InitPipeline(_dev);
@@ -1067,6 +1084,23 @@ void PMXModel::InitShader()
 
 void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std::shared_ptr<Camera> _camera, ID3D12DescriptorHeap* _rtv1stDescHeap)
 {
+	auto& app = Application::GetInstance();
+
+	//パイプラインのセット
+	_cmdList->SetPipelineState(_pipeline);
+
+	//ルートシグネチャのセット
+	_cmdList->SetGraphicsRootSignature(_rootSignature);
+
+	_viewport.Width = app.GetWIndowSize().w;
+	_viewport.Height = app.GetWIndowSize().h;
+
+	_scissorRect.right = app.GetWIndowSize().w;
+	_scissorRect.bottom = app.GetWIndowSize().h;
+
+	_cmdList->RSSetViewports(1, &_viewport);
+	_cmdList->RSSetScissorRects(1, &_scissorRect);
+
 	float clearColor[] = { 0,0,0.5f,1.0f };
 
 	auto heapStart = _rtv1stDescHeap->GetCPUDescriptorHandleForHeapStart();

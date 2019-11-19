@@ -75,17 +75,17 @@ float4 ps(Output input) : SV_Target
     //return float4(brightnass, brightnass, brightnass, 1);
 
     //輪郭線抽出
-    ret = ret * -4
-    + tex.Sample(smp, input.uv + float2(-dx, 0))
-    + tex.Sample(smp, input.uv + float2(dx, 0))
-    + tex.Sample(smp, input.uv + float2(0, dy))
-    + tex.Sample(smp, input.uv + float2(0, -dy));
+    //ret = ret * -4
+    //+ tex.Sample(smp, input.uv + float2(-dx, 0))
+    //+ tex.Sample(smp, input.uv + float2(dx, 0))
+    //+ tex.Sample(smp, input.uv + float2(0, dy))
+    //+ tex.Sample(smp, input.uv + float2(0, -dy));
 
-    float brightnass = dot(b.rgb, 1 - ret.rgb);
+    //float brightnass = dot(b.rgb, 1 - ret.rgb);
     
-    brightnass = pow(brightnass, 10);
+    //brightnass = pow(brightnass, 10);
 
-    return float4(brightnass, brightnass, brightnass, 1);
+    //return float4(brightnass, brightnass, brightnass, 1);
 
     ////ポスタリゼーション
 

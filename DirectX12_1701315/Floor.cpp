@@ -211,8 +211,8 @@ void Floor::InitPiplineState(ID3D12Device* _dev)
 	//‚»‚Ì‘¼
 	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	gpsDesc.NodeMask = 0;
-	gpsDesc.SampleDesc.Count = 1;			//‚¢‚é
-	gpsDesc.SampleDesc.Quality = 0;			//‚¢‚é
+	gpsDesc.SampleDesc.Count = 1;		//‚¢‚é
+	gpsDesc.SampleDesc.Quality = 0;		//‚¢‚é
 	gpsDesc.SampleMask = 0xffffffff;	//‘S•”‚P
 
 	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;

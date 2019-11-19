@@ -290,6 +290,11 @@ public:
 	void Duration(float flame);
 	ID3D12DescriptorHeap*& GetMatHeap();
 	ID3D12DescriptorHeap*& GetBoneHeap();
+	std::vector<Material> GetMatData();
+
+	D3D12_INDEX_BUFFER_VIEW GetidxbView();
+	D3D12_VERTEX_BUFFER_VIEW GetvView();
+
 	void InitModel(ID3D12Device* _dev);
 	void InitBone(ID3D12Device* _dev);
 	void InitMotion(const char * filepath, ID3D12Device * _dev);

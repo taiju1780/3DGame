@@ -54,30 +54,15 @@ private:
 	///Queueが判断してこの関数で値を更新する
 	void WaitExcute();
 
-	//頂点データ
-	/*void InitVertices();
-	ID3D12Resource* _vertexBuffer = nullptr;
-	D3D12_VERTEX_BUFFER_VIEW _vbView = {};*/
-
 	////シェーダ関連
 	void InitShader();
-	//ID3DBlob* vertexShader = nullptr;
-	//ID3DBlob* pixelShader = nullptr;
-
-	////ルートシグネチャー
-	//void InitRootSignature();
-	//ID3D12RootSignature* _rootSignature = nullptr;
 	
 	////パイプライン
 	void InitPipeline();
-	//ID3D12PipelineState* _pipeline = nullptr;
 
 	//ビューポート、シザー
 	D3D12_VIEWPORT _viewport;
 	D3D12_RECT _scissorRect;
-
-	ID3D12Resource* _indexBuffer;
-	D3D12_INDEX_BUFFER_VIEW _idxbView = {};
 
 	//画像関係
 	void InitTexture();
@@ -100,17 +85,6 @@ private:
 
 	//shadow
 	std::shared_ptr<Shadow> _shadow;
-	
-	//頂点初期化
-	/*void InitModelVertices();
-	ID3D12Resource* _vertexModelBuffer = nullptr;
-	ID3D12Resource* _indexModelBuffer = nullptr;*/
-
-	//深度
-	/*void InitDescriptorHeapDSV();
-	ID3D12Resource* _dsvBuff;
-	ID3D12DescriptorHeap* _dsvHeap = nullptr;
-	ID3D12DescriptorHeap* _depthSrvHeap = nullptr;*/
 
 	//ペラポリ
 	D3D12_VERTEX_BUFFER_VIEW _1stvbView = {};
