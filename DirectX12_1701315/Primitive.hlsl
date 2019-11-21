@@ -54,6 +54,5 @@ float4 ps(Output input) : SV_Target
         return float4(0.8, 0.8, 0.8, 1);
     }
 
-
     return float4(1, 1, 1, 1);
 }

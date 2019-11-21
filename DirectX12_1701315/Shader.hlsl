@@ -80,7 +80,7 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
     {
         m = boneMatrices[boneindex.x] * float(weight.x) + boneMatrices[boneindex.y] * (1 - float(weight.x));
     }
-
+    
     pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(wvp, float4(pos, 1));
@@ -89,7 +89,6 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
     o.vnormal = mul(world, float4(o.normal, 1));
     o.weight = weight;
     o.boneindex = boneindex;
-    o.weighttype = weighttype;
 
     return o;
 }

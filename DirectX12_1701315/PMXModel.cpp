@@ -9,6 +9,7 @@
 #include <vector>
 #include<Shlwapi.h> 
 #include "Wrapper.h"
+#include <string>
 
 //リンク
 #pragma comment(lib,"d3d12.lib")
@@ -174,14 +175,16 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 		fread(&pathlength, sizeof(pathlength), 1, fp);
 
 		std::string str;
+		std::wstring wstr;
 
 		for (int i = 0; i < pathlength /2; ++i) {
 
 			wchar_t c;
 			fread(&c, sizeof(wchar_t), 1, fp);
 			str += c;
+			wstr += c;
 		}
-		_texpath[t] = str;
+		_texpath[t] = WStringToStirng( wstr);
 	}
 
 	unsigned int MatNum = 0;
@@ -401,11 +404,23 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 	_ToonBuff.resize(_matData.size());
 	auto folder = GetTexPath(filepath);
 
+	
+	for (int i = 0; i < MatNum; ++i)
+	{
+		if (_matData[i].textureIndex < _texturePaths.size()) {
+			_texturePaths[i] = folder + GetTexAstPath(_texpath[_matData[i].textureIndex].c_str());
+		}
+	}
+
 	for (int i = 0; i < MatNum; ++i) {
-		if (_matData[i].toonidx != 0xff) {
+
+		if (_matData[i].toonidx < _texturePaths.size()) {
+
 			if (_matData[i].toonflag == 1) {
+
 				toonfilepath = GetToonTexpathFromIndex(_matData[i].toonidx, folder);
 				InitToon(toonfilepath, _dev, i);
+
 			}
 			else
 			{
@@ -414,16 +429,13 @@ void PMXModel::LoadModel(const char * filepath, ID3D12Device* _dev)
 			}
 		}
 		else {
+
 			InitToon("", _dev, i);
 		}
 	}
+	
 
-	for (int i = 0; i < MatNum; ++i)
-	{
-		if (_matData[i].textureIndex != 0xff) {
-			_texturePaths[i] = folder + GetTexAstPath(_texpath[_matData[i].textureIndex].c_str());
-		}
-	}
+	
 }
 
 void PMXModel::CreatModelTex(ID3D12Device * _dev)
@@ -740,7 +752,6 @@ void PMXModel::InitModel(ID3D12Device * _dev)
 {
 	InitShader();
 	InitModelVertices(_dev);
-	InitDescriptorHeapDSV(_dev);
 	InitRootSignature(_dev);
 	InitPipeline(_dev);
 }
@@ -1103,17 +1114,6 @@ void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std
 
 	float clearColor[] = { 0,0,0.5f,1.0f };
 
-	auto heapStart = _rtv1stDescHeap->GetCPUDescriptorHandleForHeapStart();
-
-	//レンダーターゲット設定
-	_cmdList->OMSetRenderTargets(1, &heapStart, false, &_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-
-	//クリアレンダーターゲット
-	_cmdList->ClearRenderTargetView(heapStart, clearColor, 0, nullptr);
-
-	//深度バッファをクリア
-	_cmdList->ClearDepthStencilView(_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
-
 	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
 	_cmdList->IASetIndexBuffer(&_idxbView);
 
@@ -1138,7 +1138,6 @@ void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std
 	auto incriment_size =
 		_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 5;
 
-
 	for (auto& m : _matData) {
 		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);
 		mathandle.ptr += incriment_size;
@@ -1149,9 +1148,6 @@ void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std
 
 void PMXModel::InitModelVertices(ID3D12Device* _dev)
 {
-	/*auto vdata = _model->GetverticesData();
-	auto idata = _model->GetindexData();*/
-
 	auto vdata = _verticesData;
 	auto idata = _indexData;
 
@@ -1378,7 +1374,6 @@ void PMXModel::InitPipeline(ID3D12Device* _dev)
 	gpsDesc.NodeMask = 0;
 	gpsDesc.SampleDesc.Count = 1;
 	gpsDesc.SampleDesc.Quality = 0;
-	//gpsDesc.SampleMask			= 0xffffffff;
 	gpsDesc.SampleMask = D3D12_COLOR_WRITE_ENABLE_ALL;
 	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 
@@ -1388,64 +1383,6 @@ void PMXModel::InitPipeline(ID3D12Device* _dev)
 ID3D12PipelineState *& PMXModel::GetPipeline()
 {
 	return _pipeline;
-}
-
-void PMXModel::InitDescriptorHeapDSV(ID3D12Device* _dev)
-{
-	auto &app = Application::GetInstance();
-
-	//デスクリプターヒープ
-	D3D12_DESCRIPTOR_HEAP_DESC _dsvDesc = {};
-	_dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	_dsvDesc.NodeMask = 0;
-	_dsvDesc.NumDescriptors = 1;
-	_dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
-
-	auto result = _dev->CreateDescriptorHeap(&_dsvDesc, IID_PPV_ARGS(&_dsvHeap));
-
-	//深度バッファ
-	D3D12_HEAP_PROPERTIES heappropDsv = {};
-	heappropDsv.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	heappropDsv.CreationNodeMask = 0;
-	heappropDsv.VisibleNodeMask = 0;
-	heappropDsv.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	heappropDsv.Type = D3D12_HEAP_TYPE_DEFAULT;
-
-	D3D12_RESOURCE_DESC dsvDesc = {};
-	dsvDesc.Alignment = 0;
-	dsvDesc.Width = app.GetWIndowSize().w;
-	dsvDesc.Height = app.GetWIndowSize().h;
-	dsvDesc.DepthOrArraySize = 1;
-	dsvDesc.MipLevels = 0;
-	dsvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-	dsvDesc.SampleDesc.Count = 1;
-	dsvDesc.SampleDesc.Quality = 0;
-	dsvDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	dsvDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-	dsvDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
-	//クリアバリュー
-	D3D12_CLEAR_VALUE clearValue;
-	clearValue.DepthStencil.Depth = 1.0f;
-	clearValue.DepthStencil.Stencil = 0;
-	clearValue.Format = DXGI_FORMAT_D32_FLOAT;
-
-	result = _dev->CreateCommittedResource(
-		&heappropDsv,
-		D3D12_HEAP_FLAG_NONE,
-		&dsvDesc,
-		D3D12_RESOURCE_STATE_DEPTH_WRITE,
-		&clearValue,
-		IID_PPV_ARGS(&_dsvBuff));
-
-	//深度バッファービュー
-	D3D12_DEPTH_STENCIL_VIEW_DESC _dsvVDesc = {};
-	_dsvVDesc.Format = DXGI_FORMAT_D32_FLOAT;
-	_dsvVDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	_dsvVDesc.Texture2D.MipSlice = 0;
-	_dsvVDesc.Flags = D3D12_DSV_FLAG_NONE;
-
-	_dev->CreateDepthStencilView(_dsvBuff, &_dsvVDesc, _dsvHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 PMXModel::PMXModel(const char * filepath,ID3D12Device* _dev)
@@ -1485,13 +1422,24 @@ void PMXModel::Duration(float flame)
 void PMXModel::MotionUpdate(int flameNo)
 {
 	for (auto &anim : _animation) {
+		if (_boneMap.find(StringToWStirng(anim.first)) == _boneMap.end())continue;
 		auto &keyflames = anim.second;
+
 		auto flameIt = std::find_if(keyflames.rbegin(), keyflames.rend(),
 			[flameNo](const PMX_VMD_MOTION& motion) {return motion.FlameNo <= flameNo; });
+
 		if (flameIt == keyflames.rend())continue;
+
 		auto nextIt = flameIt.base();
+
 		if (nextIt == keyflames.end()) {
+
 			RotationBone(anim.first.c_str(), flameIt->quaternion);
+
+			auto a = StringToWStirng(_motions[flame].BoneName);
+
+			_boneMatrices[_boneMap[StringToWStirng(_motions[flame].BoneName)].boneidx] *=
+				XMMatrixTranslationFromVector(XMLoadFloat3(&flameIt->Location));
 		}
 		else {
 			auto a = flameIt->FlameNo;
@@ -1500,6 +1448,9 @@ void PMXModel::MotionUpdate(int flameNo)
 			//線形補間により腕の長さを調整している(しないと短くなる)
 			t = CreatBezier(t, nextIt->bz1, nextIt->bz2);
 			RotationBone(anim.first.c_str(), flameIt->quaternion, nextIt->quaternion, t);
+
+			_boneMatrices[_boneMap[StringToWStirng(_motions[flame].BoneName)].boneidx] *=
+				XMMatrixTranslationFromVector(XMVectorLerp(XMLoadFloat3(&flameIt->Location), XMLoadFloat3(&nextIt->Location),t));
 		}
 	}
 	//ツリーをトラバース

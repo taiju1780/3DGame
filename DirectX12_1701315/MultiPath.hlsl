@@ -87,7 +87,7 @@ float4 ps(Output input) : SV_Target
 
     //return float4(brightnass, brightnass, brightnass, 1);
 
-    ////ポスタリゼーション
+    //ポスタリゼーション
 
     //float3 post = ret.rgb - fmod(ret.rgb, 0.25f);
     //return float4(post, 1);
@@ -96,7 +96,8 @@ float4 ps(Output input) : SV_Target
 
    
     //反転
-    //if (input.uv.y < 0.6 && input.uv.y > 0.4)
+
+    //if (input.uv.y < 0.8 && input.uv.y > 0.7)
     //{
     //    float4 col = tex.Sample(smp, input.uv);
     //    return float4(1 - col.rgb, col.a);

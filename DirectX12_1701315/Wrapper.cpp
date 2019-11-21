@@ -150,24 +150,8 @@ void Wrapper::InitPipeline()
 	gpsDesc.RasterizerState.CullMode	= D3D12_CULL_MODE_NONE;
 	gpsDesc.RasterizerState.FillMode	= D3D12_FILL_MODE_SOLID;
 
-	D3D12_RENDER_TARGET_BLEND_DESC renderBlDesc = {};
-	renderBlDesc.BlendEnable			= true;
-	renderBlDesc.BlendOp				= D3D12_BLEND_OP_ADD;
-	renderBlDesc.BlendOpAlpha			= D3D12_BLEND_OP_ADD;
-	renderBlDesc.SrcBlend				= D3D12_BLEND_SRC_ALPHA;
-	renderBlDesc.DestBlend				= D3D12_BLEND_INV_SRC_ALPHA;
-	renderBlDesc.SrcBlendAlpha			= D3D12_BLEND_ONE;
-	renderBlDesc.DestBlendAlpha			= D3D12_BLEND_ZERO;
-	renderBlDesc.RenderTargetWriteMask	= D3D12_COLOR_WRITE_ENABLE_ALL;
-
-	//αブレンド
-	D3D12_BLEND_DESC BlendDesc = {};
-	BlendDesc.AlphaToCoverageEnable = false;
-	BlendDesc.IndependentBlendEnable = false;
-	BlendDesc.RenderTarget[0] = renderBlDesc;
-
 	//その他
-	gpsDesc.BlendState				= BlendDesc;
+	gpsDesc.BlendState				= CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	gpsDesc.NodeMask				= 0;
 	gpsDesc.SampleDesc.Count		= 1;
 	gpsDesc.SampleDesc.Quality		= 0;
@@ -702,6 +686,64 @@ void Wrapper::InitPath2ndRootSignature()
 		IID_PPV_ARGS(&_pera2rootsigunature));
 }
 
+void Wrapper::InitDescriptorHeapDSV()
+{
+	auto &app = Application::GetInstance();
+
+	//デスクリプターヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC _dsvDesc = {};
+	_dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	_dsvDesc.NodeMask = 0;
+	_dsvDesc.NumDescriptors = 1;
+	_dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+
+	auto result = _dev->CreateDescriptorHeap(&_dsvDesc, IID_PPV_ARGS(&_dsvHeap));
+
+	//深度バッファ
+	D3D12_HEAP_PROPERTIES heappropDsv = {};
+	heappropDsv.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heappropDsv.CreationNodeMask = 0;
+	heappropDsv.VisibleNodeMask = 0;
+	heappropDsv.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	heappropDsv.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+	D3D12_RESOURCE_DESC dsvDesc = {};
+	dsvDesc.Alignment = 0;
+	dsvDesc.Width = app.GetWIndowSize().w;
+	dsvDesc.Height = app.GetWIndowSize().h;
+	dsvDesc.DepthOrArraySize = 1;
+	dsvDesc.MipLevels = 0;
+	dsvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	dsvDesc.SampleDesc.Count = 1;
+	dsvDesc.SampleDesc.Quality = 0;
+	dsvDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	dsvDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	dsvDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+	//クリアバリュー
+	D3D12_CLEAR_VALUE clearValue;
+	clearValue.DepthStencil.Depth = 1.0f;
+	clearValue.DepthStencil.Stencil = 0;
+	clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+
+	result = _dev->CreateCommittedResource(
+		&heappropDsv,
+		D3D12_HEAP_FLAG_NONE,
+		&dsvDesc,
+		D3D12_RESOURCE_STATE_DEPTH_WRITE,
+		&clearValue,
+		IID_PPV_ARGS(&_dsvBuff));
+
+	//深度バッファービュー
+	D3D12_DEPTH_STENCIL_VIEW_DESC _dsvVDesc = {};
+	_dsvVDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	_dsvVDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	_dsvVDesc.Texture2D.MipSlice = 0;
+	_dsvVDesc.Flags = D3D12_DSV_FLAG_NONE;
+
+	_dev->CreateDepthStencilView(_dsvBuff, &_dsvVDesc, _dsvHeap->GetCPUDescriptorHandleForHeapStart());
+}
+
 void Wrapper::DrawLightView()
 {
 	_cmdList->SetPipelineState(_shadow->GetShadowPipeline());
@@ -741,19 +783,21 @@ void Wrapper::DrawLightView()
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//バッファービューのセット
-	_cmdList->IASetVertexBuffers(0, 1, &_pmxModel->GetvView());
-	_cmdList->IASetIndexBuffer(&_pmxModel->GetidxbView());
+	for (auto &pmxmodel : _pmxModels) {
+		_cmdList->IASetVertexBuffers(0, 1, &pmxmodel->GetvView());
+		_cmdList->IASetIndexBuffer(&pmxmodel->GetidxbView());
 
-	//ボーンヒープ
-	_cmdList->SetDescriptorHeaps(1, &_pmxModel->GetBoneHeap());
-	_cmdList->SetGraphicsRootDescriptorTable(1, _pmxModel->GetBoneHeap()->GetGPUDescriptorHandleForHeapStart());
+		//ボーンヒープ
+		_cmdList->SetDescriptorHeaps(1, &pmxmodel->GetBoneHeap());
+		_cmdList->SetGraphicsRootDescriptorTable(1, pmxmodel->GetBoneHeap()->GetGPUDescriptorHandleForHeapStart());
 
-	//モデル表示
-	unsigned int offset = 0;
+		//モデル表示
+		unsigned int offset = 0;
 
-	for (auto m : _pmxModel->GetMatData()) {
-		_cmdList->DrawIndexedInstanced(m.face_vert_cnt, 1, offset, 0, 0);
-		offset += m.face_vert_cnt;
+		for (auto m : pmxmodel->GetMatData()) {
+			_cmdList->DrawIndexedInstanced(m.face_vert_cnt, 1, offset, 0, 0);
+			offset += m.face_vert_cnt;
+		}
 	}
 
 	//バリアー
@@ -812,6 +856,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	InitDescriptorHeapRTV();
 
+	InitDescriptorHeapDSV();
+
 	InitPath1stRTVSRV();
 
 	InitPath2ndRTVSRV();
@@ -837,6 +883,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	//const char* xfilepath = ("PMXModel/レムとラム Ver. 1.02/Rem Ver. 1.02.pmx");
 	//const char* xfilepath = ("PMXModel/レムとラム Ver. 1.02/Ram.pmx");
 	const char* xfilepath = ("PMXModel/na_2b_0407h/na_2b_0407.pmx");
+	//const char* x2filepath = ("PMXModel/ちびルーミア/ちびルーミア.pmx");
+	const char* x2filepath = ("PMXModel/TB/TB.pmx");
 
 	//モーション(アクション)
 	//const char* mfilepath = ("Motion/pose.vmd");
@@ -845,22 +893,27 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	//const char* mfilepath = ("Motion/first.vmd");
 
 	//モーション(ダンス)
-	//const char* mfilepath = ("Motion/ELECTモーション_小さめ身長用.vmd");
-	const char* mfilepath = ("Motion/ストロボナイツモーション.vmd");
-	//const char* mfilepath = ("Motion/えれくとりっくえんじぇぅ.vmd");
+	const char* mfilepath = ("Motion/45秒GUMI.vmd");
+	//const char* mfilepath = ("Motion/ストロボナイツモーション.vmd");
+	//const char* m2filepath = ("Motion/えれくとりっくえんじぇぅ.vmd");
 	//const char* mfilepath = ("Motion/ヤゴコロダンス.vmd");
-	//const char* mfilepath = ("Motion/lamb足ボーン長い人用.vmd");
+	const char* m2filepath = ("Motion/45秒MIKU.vmd");
 
 	_model.reset(new PMDModel(cfilepath,_dev));
 
-	_pmxModel.reset(new PMXModel(xfilepath, _dev));
+	_pmxModels.emplace_back(std::make_shared<PMXModel>(x2filepath, _dev));
+	_pmxModels.emplace_back(std::make_shared<PMXModel>(xfilepath, _dev));
 
-	_pmxModel->InitMotion(mfilepath,_dev);
+	_pmxModels[0]->InitMotion(mfilepath, _dev);
+	_pmxModels[1]->InitMotion(m2filepath, _dev);
 
-	_pmxModel->InitModel(_dev);
+	for (auto &xmodel : _pmxModels) {
 
-	_pmxModel->InitBone(_dev);
+		xmodel->InitModel(_dev);
 
+		xmodel->InitBone(_dev);
+	}
+	
 	_floor.reset(new Floor(_dev));
 
 	_shadow.reset(new Shadow(_dev));
@@ -897,8 +950,9 @@ void Wrapper::Update()
 	unsigned char keyState[256];
 	_camera->CameraUpdate(keyState);
 
-	_pmxModel->Update();
-
+	for (auto &xmodel : _pmxModels) {
+		xmodel->Update();
+	}
 	auto heapStart = _rtv1stDescHeap->GetCPUDescriptorHandleForHeapStart();
 
 	float clearColor[] = { 0,0,0.5f,1.0f };
@@ -908,7 +962,7 @@ void Wrapper::Update()
 
 	//コマンドのリセット
 	auto result = _cmdAllocator->Reset();
-	result = _cmdList->Reset(_cmdAllocator, _pmxModel->GetPipeline());
+	result = _cmdList->Reset(_cmdAllocator, nullptr);
 
 	DrawLightView();
 
@@ -920,7 +974,18 @@ void Wrapper::Update()
 		D3D12_RESOURCE_STATE_PRESENT,
 		D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	_pmxModel->Draw(_dev, _cmdList, _camera, _rtv1stDescHeap);
+	//レンダーターゲット設定
+	_cmdList->OMSetRenderTargets(1, &heapStart, false, &_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	//クリアレンダーターゲット
+	_cmdList->ClearRenderTargetView(heapStart, clearColor, 0, nullptr);
+
+	//深度バッファをクリア
+	_cmdList->ClearDepthStencilView(_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
+
+	for (auto &xmodel : _pmxModels) {
+		xmodel->Draw(_dev, _cmdList, _camera, _rtv1stDescHeap);
+	}
 
 	_cmdList->SetDescriptorHeaps(1, &_camera->GetrgstDescHeap());
 	_cmdList->SetGraphicsRootDescriptorTable(0, _camera->GetrgstDescHeap()->GetGPUDescriptorHandleForHeapStart());
@@ -954,10 +1019,9 @@ void Wrapper::Update()
 
 	PeraUpdate();
 
-	//Pera2Update();
+	Pera2Update();
 
 	_swapchain->Present(0, 0);
-
 }
 
 void Wrapper::PeraUpdate()
@@ -971,7 +1035,7 @@ void Wrapper::PeraUpdate()
 	_cmdList->ResourceBarrier(
 		1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(
-			_backBuffers[bbIdx],
+			_2ndPathBuff,
 			D3D12_RESOURCE_STATE_PRESENT,
 			D3D12_RESOURCE_STATE_RENDER_TARGET));
 
@@ -989,8 +1053,8 @@ void Wrapper::PeraUpdate()
 	_cmdList->RSSetScissorRects(1, &_scissorRect);
 
 	//レンダーターゲット指定
-	auto rtv = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
-	rtv.ptr += bbIdx * _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	auto rtv = _rtv2ndDescHeap->GetCPUDescriptorHandleForHeapStart();
+	//rtv.ptr += bbIdx * _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 	//レンダーターゲット設定
 	_cmdList->OMSetRenderTargets(1, &rtv, false, nullptr);
@@ -1019,7 +1083,7 @@ void Wrapper::PeraUpdate()
 	_cmdList->ResourceBarrier(
 		1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(
-			_backBuffers[bbIdx],
+			_2ndPathBuff,
 			D3D12_RESOURCE_STATE_RENDER_TARGET,
 			D3D12_RESOURCE_STATE_PRESENT));
 
@@ -1040,7 +1104,7 @@ void Wrapper::Pera2Update()
 	_cmdList->ResourceBarrier(
 		1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(
-			_2ndPathBuff,
+			_backBuffers[bbIdx],
 			D3D12_RESOURCE_STATE_PRESENT,
 			D3D12_RESOURCE_STATE_RENDER_TARGET));
 
@@ -1089,7 +1153,7 @@ void Wrapper::Pera2Update()
 	_cmdList->ResourceBarrier(
 		1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(
-		_2ndPathBuff,
+		_backBuffers[bbIdx],
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_PRESENT));
 

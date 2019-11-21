@@ -83,11 +83,11 @@ float4 ps(Output input) : SV_Target
 
    
     //”½“]
-    if (input.uv.y < 0.6 && input.uv.y > 0.4)
-    {
-        float4 col = tex.Sample(smp, input.uv);
-        return float4(1 - col.rgb, col.a);
-    }
+    //if (input.uv.y < 0.6 && input.uv.y > 0.4)
+    //{
+    //    float4 col = tex.Sample(smp, input.uv);
+    //    return float4(1 - col.rgb, col.a);
+    //}
 
     //’Êí
     return ret;

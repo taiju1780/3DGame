@@ -71,14 +71,21 @@ private:
 	ID3D12DescriptorHeap* _texrtvHeap = nullptr;
 	ID3D12DescriptorHeap* _texsrvHeap = nullptr;
 
+	//ê[ìx
+	void InitDescriptorHeapDSV();
+	ID3D12Resource* _dsvBuff;
+	ID3D12DescriptorHeap* _dsvHeap = nullptr;
+	ID3D12DescriptorHeap* _depthSrvHeap = nullptr;
+
 	//ÉJÉÅÉâ
 	std::shared_ptr<Camera> _camera;
 
-	//model
+	//pmdmodel
 	std::shared_ptr<PMDModel> _model;
 
 	//pmxmodel
 	std::shared_ptr<PMXModel> _pmxModel;
+	std::vector<std::shared_ptr<PMXModel>> _pmxModels;
 
 	//Floar
 	std::shared_ptr<Floor> _floor;

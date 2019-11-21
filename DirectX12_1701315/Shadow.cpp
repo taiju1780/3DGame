@@ -146,25 +146,8 @@ void Shadow::InitPipline(ID3D12Device *_dev)
 	gpsDesc.RasterizerState.CullMode	= D3D12_CULL_MODE_NONE;
 	gpsDesc.RasterizerState.FillMode	= D3D12_FILL_MODE_SOLID;
 
-
-	D3D12_RENDER_TARGET_BLEND_DESC renderBlDesc = {};
-	renderBlDesc.BlendEnable					= true;
-	renderBlDesc.BlendOp						= D3D12_BLEND_OP_ADD;
-	renderBlDesc.BlendOpAlpha					= D3D12_BLEND_OP_ADD;
-	renderBlDesc.SrcBlend						= D3D12_BLEND_SRC_ALPHA;
-	renderBlDesc.DestBlend						= D3D12_BLEND_INV_SRC_ALPHA;
-	renderBlDesc.SrcBlendAlpha					= D3D12_BLEND_ONE;
-	renderBlDesc.DestBlendAlpha					= D3D12_BLEND_ZERO;
-	renderBlDesc.RenderTargetWriteMask			= D3D12_COLOR_WRITE_ENABLE_ALL;
-
-	//ƒ¿ƒuƒŒƒ“ƒh
-	D3D12_BLEND_DESC BlendDesc = {};
-	BlendDesc.AlphaToCoverageEnable = false;
-	BlendDesc.IndependentBlendEnable = false;
-	BlendDesc.RenderTarget[0] = renderBlDesc;
-
 	//‚»‚Ì‘¼
-	gpsDesc.BlendState			= BlendDesc;
+	gpsDesc.BlendState			= CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	gpsDesc.NodeMask			= 0;
 	gpsDesc.SampleDesc.Count	= 1;			//‚¢‚é
 	gpsDesc.SampleDesc.Quality	= 0;			//‚¢‚é
