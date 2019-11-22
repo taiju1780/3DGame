@@ -98,9 +98,9 @@ private:
 	ID3D12Resource* _peraBuff;
 
 	//１パス目に使用するレンダリングバッファ
-	ID3D12Resource* _1stPathBuff;
+	std::vector<ID3D12Resource*> _1stPathBuffers;
 	ID3D12DescriptorHeap* _rtv1stDescHeap = nullptr;		//RTV(レンダーターゲット)デスクリプタヒープ
-	ID3D12DescriptorHeap *_srv1stDescHeap = nullptr;		//その他(テクスチャ、定数)デスクリプタヒープ
+	ID3D12DescriptorHeap* _srv1stDescHeap = nullptr;		//その他(テクスチャ、定数)デスクリプタヒープ
 
 	ID3DBlob* peravertexShader = nullptr;
 	ID3DBlob* perapixelShader = nullptr;
@@ -134,6 +134,13 @@ private:
 
 	//影
 	void DrawLightView();
+
+	//ブルーム
+	//bloom
+	/*ID3D12DescriptorHeap* _bloomrtv;
+	ID3D12DescriptorHeap* _bloomsrv;
+	std::vector<ID3D12Resource*> _bloomBuffers;*/
+	void InitBloomRTVSRV(ID3D12Device * _dev);
 
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);

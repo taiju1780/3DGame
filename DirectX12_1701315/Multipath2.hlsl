@@ -21,6 +21,19 @@ Output vs(float4 pos : POSITION, float2 uv : TEXCOORD)
     return output;
 }
 
+float4 GetBokehColor(Texture2D<float4> tx, SamplerState s, float2 uv)
+{
+    return tx.Sample(s, uv, int2(-1, -1)) / 16 +
+  tx.Sample(s, uv, int2(0, -1)) / 8 +
+  tx.Sample(s, uv, int2(1, -1)) / 16 +
+  tx.Sample(s, uv, int2(-1, 0)) / 8 +
+  tx.Sample(s, uv) / 4 +
+  tx.Sample(s, uv, int2(1, 0)) / 8 +
+  tx.Sample(s, uv, int2(-1, 1)) / 16 +
+  tx.Sample(s, uv, int2(0, 1)) / 8 +
+  tx.Sample(s, uv, int2(1, 1)) / 16;
+}
+
 //ピクセルシェーダ
 float4 ps(Output input) : SV_Target
 {
@@ -66,10 +79,11 @@ float4 ps(Output input) : SV_Target
     //- tex.Sample(smp, input.uv + float2(0, dy))
     //- tex.Sample(smp, input.uv + float2(0, -dy));
 
-    ////線を黒周りを白にしたいので反転させる
+    //線を黒周りを白にしたいので反転させる
+
     //float brightnass = dot(b.rgb, 1 - ret.rgb);
 
-    ////線を強調
+    //線を強調
     //brightnass = pow(brightnass, 10);
 
     //return float4(brightnass, brightnass, brightnass, 1);
@@ -89,6 +103,20 @@ float4 ps(Output input) : SV_Target
     //    return float4(1 - col.rgb, col.a);
     //}
 
+    float4 shrinkCol = GetBokehColor(tex, smp, input.uv * float2(1, 0.5)) +
+                        GetBokehColor(tex, smp,input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
+                        GetBokehColor(tex, smp,input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
+                        GetBokehColor(tex, smp,input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
+
+    return float4(shrinkCol.rgb * 0.3, ret.a);
+ 
+
+    //float4 shrinkCol = tex.Sample(smp, input.uv * float2(1, 0.5)) +
+    //            tex.Sample(smp, input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
+    //            tex.Sample(smp, input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
+    //            tex.Sample(smp, input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
+
     //通常
-    return ret;
+    return shrinkCol;
 }
+

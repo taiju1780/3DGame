@@ -147,9 +147,9 @@ struct PMXColor {
 };
 
 struct PMX_VMD_MOTION {					// 111 Bytes // モーション
-	char BoneName[15];				// ボーン名
+	char BoneName[15];					// ボーン名
 	unsigned int FlameNo;				// フレーム番号(読込時は現在のフレーム位置を0とした相対位置)
-	DirectX::XMFLOAT3 Location;					// 位置
+	DirectX::XMFLOAT3 Location;			// 位置
 	DirectX::XMFLOAT4 quaternion;		// Quaternion // 回転
 	unsigned char Interpolation[64];	// [4][4][4] // 補完
 	DirectX::XMFLOAT2 bz1;				//ベジェ係数1
@@ -277,6 +277,7 @@ private:
 	ID3D12Resource* _vertexModelBuffer = nullptr;
 	ID3D12Resource* _indexModelBuffer = nullptr; 
 
+	
 public:
 	PMXModel(const char * filepath, ID3D12Device* _dev);
 	~PMXModel();

@@ -1108,7 +1108,7 @@ void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std
 
 	_scissorRect.right = app.GetWIndowSize().w;
 	_scissorRect.bottom = app.GetWIndowSize().h;
-
+	
 	_cmdList->RSSetViewports(1, &_viewport);
 	_cmdList->RSSetScissorRects(1, &_scissorRect);
 
@@ -1338,8 +1338,10 @@ void PMXModel::InitPipeline(ID3D12Device* _dev)
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
 
 	//レンダーターゲット
-	gpsDesc.NumRenderTargets = 1;
+	////マルチレンダーターゲット
+	gpsDesc.NumRenderTargets = 2;
 	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	//深度ステンシル
 	gpsDesc.DepthStencilState.DepthEnable = true;
@@ -1354,14 +1356,14 @@ void PMXModel::InitPipeline(ID3D12Device* _dev)
 	gpsDesc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
 
 	D3D12_RENDER_TARGET_BLEND_DESC renderBlDesc = {};
-	renderBlDesc.BlendEnable = true;
-	renderBlDesc.BlendOp = D3D12_BLEND_OP_ADD;
-	renderBlDesc.BlendOpAlpha = D3D12_BLEND_OP_ADD;
-	renderBlDesc.SrcBlend = D3D12_BLEND_SRC_ALPHA;
-	renderBlDesc.DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
-	renderBlDesc.SrcBlendAlpha = D3D12_BLEND_ONE;
-	renderBlDesc.DestBlendAlpha = D3D12_BLEND_ZERO;
-	renderBlDesc.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+	renderBlDesc.BlendEnable					= true;
+	renderBlDesc.BlendOp						= D3D12_BLEND_OP_ADD;
+	renderBlDesc.BlendOpAlpha					= D3D12_BLEND_OP_ADD;
+	renderBlDesc.SrcBlend						= D3D12_BLEND_SRC_ALPHA;
+	renderBlDesc.DestBlend						= D3D12_BLEND_INV_SRC_ALPHA;
+	renderBlDesc.SrcBlendAlpha					= D3D12_BLEND_ONE;
+	renderBlDesc.DestBlendAlpha					= D3D12_BLEND_ZERO;
+	renderBlDesc.RenderTargetWriteMask			= D3D12_COLOR_WRITE_ENABLE_ALL;
 
 	//αブレンド
 	D3D12_BLEND_DESC BlendDesc = {};
@@ -1406,8 +1408,11 @@ void PMXModel::Update()
 	std::fill(_boneMatrices.begin(), _boneMatrices.end(), XMMatrixIdentity());
 	Duration(static_cast<float>(GetTickCount() - lasttime) / 33.33333f);
 	std::copy(_boneMatrices.begin(), _boneMatrices.end(), mappedBoneMat);
+	if (_motions.size() >= flame) {
+		flame++;
+	}
 
-	if (GetTickCount() - lasttime > flame++ * 33.33333f) {
+	if (GetTickCount() - lasttime > flame * 33.33333f) {
 		lasttime = GetTickCount();
 	}
 	
@@ -1436,10 +1441,8 @@ void PMXModel::MotionUpdate(int flameNo)
 
 			RotationBone(anim.first.c_str(), flameIt->quaternion);
 
-			auto a = StringToWStirng(_motions[flame].BoneName);
-
-			_boneMatrices[_boneMap[StringToWStirng(_motions[flame].BoneName)].boneidx] *=
-				XMMatrixTranslationFromVector(XMLoadFloat3(&flameIt->Location));
+			/*_boneMatrices[_boneMap[StringToWStirng(_motions[flame].BoneName)].boneidx] *=
+				XMMatrixTranslationFromVector(XMLoadFloat3(&flameIt->Location));*/
 		}
 		else {
 			auto a = flameIt->FlameNo;
@@ -1449,8 +1452,8 @@ void PMXModel::MotionUpdate(int flameNo)
 			t = CreatBezier(t, nextIt->bz1, nextIt->bz2);
 			RotationBone(anim.first.c_str(), flameIt->quaternion, nextIt->quaternion, t);
 
-			_boneMatrices[_boneMap[StringToWStirng(_motions[flame].BoneName)].boneidx] *=
-				XMMatrixTranslationFromVector(XMVectorLerp(XMLoadFloat3(&flameIt->Location), XMLoadFloat3(&nextIt->Location),t));
+			/*_boneMatrices[_boneMap[StringToWStirng(_motions[flame].BoneName)].boneidx] *=
+				XMMatrixTranslationFromVector(XMVectorLerp(XMLoadFloat3(&flameIt->Location), XMLoadFloat3(&nextIt->Location),t));*/
 		}
 	}
 	//ツリーをトラバース

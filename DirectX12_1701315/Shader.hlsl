@@ -52,6 +52,12 @@ cbuffer Bones : register(b2)
     matrix boneMatrices[512];
 }
 
+struct POut
+{
+    float4 col : SV_Target0;
+    float4 hbr : SV_Target1;
+};
+
 //頂点シェーダ
 Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
         float4 adduv : ADDUV0, float4 adduv2 : ADDUV1, float4 adduv3 : ADDUV2, float4 adduv4 : ADDUV3,
@@ -135,30 +141,16 @@ float4 ps(Out o) : SV_Target
             * sph.Sample(smp, normalUV))
             + saturate(float4(spec * specular.rgb, 1))
             + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
-    
-    //輝度値
-    //float3 b = float3(0.298912f, 0.586611f, 0.114478f);
-
-    //float w, h, level;
-    //tex.GetDimensions(0, w, h, level);
-    //float dx = 1.0f / w; //一ピクセル分
-    //float dy = 1.0f / h; //一ピクセル分
-
-    //float4 ret = tex.Sample(smp, o.uv);
-    //ret += tex.Sample(smp, o.uv + float2(-dx, 0)) * -2;
-    //ret += tex.Sample(smp, o.uv + float2(dx, 0)) * 2;
-    //ret += tex.Sample(smp, o.uv + float2(-dx, dy)) * -1;
-    //ret += tex.Sample(smp, o.uv + float2(dx, dy)) * 1;
-    //ret += tex.Sample(smp, o.uv + float2(-dx, -dy)) * -1;
-    //ret += tex.Sample(smp, o.uv + float2(dx, -dy)) * 1;
-
-    ////線を黒周りを白にしたいので反転させる
-
-    //float brightnass = dot(b.rgb, ret.rgb);
-
-    //線を強調
-    //brightnass = pow(brightnass, 100);
-
-    //return float4(ret.rgb, 0.25f);
-
 }
+
+POut ps2(Out o)
+{
+    POut output;
+
+    output.col = tex.Sample(smp, o.uv);
+
+    output.hbr = float4(1, 1, 1, 1);
+
+    return output;
+}
+

@@ -103,6 +103,7 @@ float4 ps(Output input) : SV_Target
     //    return float4(1 - col.rgb, col.a);
     //}
 
+
     //’Êí
     return ret;
 }
