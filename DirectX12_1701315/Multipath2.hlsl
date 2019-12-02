@@ -108,7 +108,7 @@ float4 ps(Output input) : SV_Target
                         GetBokehColor(tex, smp,input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
                         GetBokehColor(tex, smp,input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
 
-    return float4(shrinkCol.rgb * 0.3, ret.a);
+    return float4(shrinkCol.rgb * 0.5, ret.a);
  
 
     //float4 shrinkCol = tex.Sample(smp, input.uv * float2(1, 0.5)) +
