@@ -63,7 +63,7 @@ void Camera::InitConstants(ID3D12Device* dev)
 		XMMatrixPerspectiveFovLH(
 		XM_PIDIV2 / 3,
 		static_cast<float>(wsize.w) / static_cast<float>(wsize.h),
-		0.1f,
+		1.0f,
 		300);
 
 	//ƒ[ƒ‹ƒhs—ñ

@@ -8,12 +8,18 @@
 #include <d3dcompiler.h>
 #include <DirectXTex.h>
 #include <stdio.h>
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_win32.h"
+#include "imgui/imgui_impl_dx12.h"
 
 //リンク
 #pragma comment(lib,"d3d12.lib") 
 #pragma comment(lib,"dxgi.lib") 
 #pragma comment (lib,"d3dcompiler.lib")
 #pragma comment(lib,"DirectXTex.lib")
+#pragma comment(lib,"Effekseer.lib")
+#pragma comment(lib,"EffekseerRendererDX12.lib")
+#pragma comment(lib,"LLGI.lib")
 
 using namespace DirectX;
 
@@ -142,8 +148,9 @@ void Wrapper::InitPipeline()
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
 
 	//レンダーターゲット
-	gpsDesc.NumRenderTargets	= 1;
+	gpsDesc.NumRenderTargets	= 2;
 	gpsDesc.RTVFormats[0]		= DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.RTVFormats[1]		= DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	//ラスタライザ
 	gpsDesc.RasterizerState				= CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -480,6 +487,7 @@ void Wrapper::InitPath1stRootSignature()
 	descTblrange[0].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblrange[0].BaseShaderRegister					= 0;
 	descTblrange[0].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	descTblrange[0].OffsetInDescriptorsFromTableStart = 1;
 
 	//t1(depth)
 	descTblrange[1].NumDescriptors						= 1;
@@ -644,8 +652,8 @@ void Wrapper::InitPath2ndRootSignature()
 	ID3DBlob* rootSignatureBlob = nullptr;	//ルートシグネチャをつくるための材料 
 	ID3DBlob* error = nullptr;	//エラー出た時の対処
 
-	D3D12_DESCRIPTOR_RANGE descTblrange[2] = {};
-	D3D12_ROOT_PARAMETER rootparam[2] = {};
+	D3D12_DESCRIPTOR_RANGE descTblrange[3] = {};
+	D3D12_ROOT_PARAMETER rootparam[3] = {};
 
 	//t0
 	descTblrange[0].NumDescriptors						= 1;
@@ -659,6 +667,11 @@ void Wrapper::InitPath2ndRootSignature()
 	descTblrange[1].BaseShaderRegister					= 1;
 	descTblrange[1].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	descTblrange[2].NumDescriptors = 1;
+	descTblrange[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblrange[2].BaseShaderRegister = 2;
+	descTblrange[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	//デスクリプターテーブル設定
 	rootparam[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootparam[0].ShaderVisibility						= D3D12_SHADER_VISIBILITY_PIXEL;
@@ -670,10 +683,15 @@ void Wrapper::InitPath2ndRootSignature()
 	rootparam[1].DescriptorTable.NumDescriptorRanges	= 1;
 	rootparam[1].DescriptorTable.pDescriptorRanges		= &descTblrange[1];
 
+	rootparam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[2].DescriptorTable.NumDescriptorRanges = 1;
+	rootparam[2].DescriptorTable.pDescriptorRanges = &descTblrange[2];
+
 	D3D12_ROOT_SIGNATURE_DESC rsd = {};
 	rsd.Flags					= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsd.pParameters				= rootparam;
-	rsd.NumParameters			= 2;
+	rsd.NumParameters			= 3;
 	rsd.pStaticSamplers			= &samplerDesc;
 	rsd.NumStaticSamplers		= 1;
 
@@ -814,6 +832,83 @@ void Wrapper::DrawLightView()
 		));
 }
 
+void Wrapper::InitEffekseer()
+{
+	auto wsize = Application::GetInstance().GetWIndowSize();
+
+	auto format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	efkRenderer = EffekseerRendererDX12::Create(_dev, _cmdQue, 2, &format, 1, false, false, 2000);
+	efkManager = Effekseer::Manager::Create(2000);
+
+	//描画インスタンスから描画機能を設定
+	efkManager->SetSpriteRenderer(efkRenderer->CreateSpriteRenderer());
+	efkManager->SetRibbonRenderer(efkRenderer->CreateRibbonRenderer());
+	efkManager->SetRingRenderer(efkRenderer->CreateRingRenderer());
+	efkManager->SetTrackRenderer(efkRenderer->CreateTrackRenderer());
+	efkManager->SetModelRenderer(efkRenderer->CreateModelRenderer());
+
+	//描画用インスタンスからテクスチャの読み込み機能を設定
+	//独自拡張可能、現在はファイルから読み込んでいる
+	efkManager->SetTextureLoader(efkRenderer->CreateTextureLoader());
+	efkManager->SetModelLoader(efkRenderer->CreateModelLoader());
+
+	//エフェクト発生位置を設定
+	auto efkPos = Effekseer::Vector3D(0.0f, 0.0f, 0.0f);
+
+	//メモリプール
+	efkMemoryPool = EffekseerRendererDX12::CreateSingleFrameMemoryPool(efkRenderer);
+
+	//コマンドリスト作成
+	efkCmdList = EffekseerRendererDX12::CreateCommandList(efkRenderer, efkMemoryPool);
+
+	//コマンドリストセット
+	efkRenderer->SetCommandList(efkCmdList);
+
+	//投影行列を設定
+	efkRenderer->SetProjectionMatrix(
+		Effekseer::Matrix44().PerspectiveFovLH(
+			XM_PIDIV2 / 3,
+			static_cast<float>(wsize.w) / static_cast<float>(wsize.h),
+			1.0f,
+			300));
+
+	//カメラ行列を設定
+	efkRenderer->SetCameraMatrix(
+		Effekseer::Matrix44().LookAtLH(
+		Effekseer::Vector3D(0, 18, -50),
+		Effekseer::Vector3D(0, 10, 0), 
+		Effekseer::Vector3D(0, 1, 0)));
+
+	//エフェクトの読み込み
+	effect = Effekseer::Effect::Create(efkManager, (const EFK_CHAR*)L"effect/test.efk");
+
+	//左手か右手か決める
+	efkManager->SetCoordinateSystem(Effekseer::CoordinateSystem::LH);
+
+	//ハンドル
+	efkHandle = efkManager->Play(effect, efkPos);
+
+	//スケールを決める
+	efkManager->SetScale(efkHandle, 5, 5, 5);
+}
+
+void Wrapper::InitIMGUI(HWND hwnd)
+{
+	D3D12_DESCRIPTOR_HEAP_DESC heapdesc = {};
+	heapdesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	heapdesc.NodeMask = 0;
+	heapdesc.NumDescriptors = 2;
+	heapdesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+	auto result = _dev->CreateDescriptorHeap(&heapdesc, IID_PPV_ARGS(&imguiHeap));
+
+	ImGui::CreateContext();
+
+	result = ImGui_ImplWin32_Init(hwnd);
+
+	result = ImGui_ImplDX12_Init(_dev, 2, DXGI_FORMAT_R8G8B8A8_UNORM, imguiHeap, imguiHeap->GetCPUDescriptorHandleForHeapStart(), imguiHeap->GetGPUDescriptorHandleForHeapStart());
+}
+
 Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 {
 	//フィーチャーレベル
@@ -857,6 +952,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	InitFence();
 
 	InitSwapChain();
+
+	InitEffekseer();
 
 	InitDescriptorHeapRTV();
 
@@ -943,6 +1040,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	_floor->InitPiplineState(_dev);
 
 	_shadow->InitPipline(_dev);
+
+	InitIMGUI(hwnd);
 }
 
 Wrapper::~Wrapper()
@@ -983,7 +1082,6 @@ void Wrapper::Update()
 
 	//レンダーターゲット設定
 	_cmdList->OMSetRenderTargets(_1stPathBuffers.size(), &heapStart, true, &_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-	
 
 	for (int i = 0; i < _1stPathBuffers.size(); ++i) {
 		//クリアレンダーターゲット
@@ -1012,6 +1110,30 @@ void Wrapper::Update()
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	_cmdList->IASetVertexBuffers(0, 1, &_floor->GetView());
 	_cmdList->DrawInstanced(4, 1, 0, 0);
+
+	//エフェクト
+	if (GetKeyboardState(keyState)) {
+		//エフェクト描画
+		if (keyState['S'] & 0x80)
+		{
+			if (efkManager->Exists(efkHandle)) {
+				efkManager->StopEffect(efkHandle);
+			}
+			efkHandle = efkManager->Play(effect, Effekseer::Vector3D(0, 0, 0));
+			efkManager->SetScale(efkHandle, 5, 5, 5);
+		}
+	}
+
+	efkManager->Update();
+	efkMemoryPool->NewFrame();
+
+	EffekseerRendererDX12::BeginCommandList(efkCmdList, _cmdList);
+	efkRenderer->BeginRendering();
+	efkManager->Draw();
+	efkRenderer->EndRendering();
+	EffekseerRendererDX12::EndCommandList(efkCmdList);
+
+	
 
 	for (int i = 0; i < _1stPathBuffers.size(); ++i) {
 		//バリア閉じ
@@ -1056,11 +1178,11 @@ void Wrapper::PeraUpdate()
 	_cmdList->SetGraphicsRootSignature(_perarootsigunature);
 
 	//ビューポート、シザー
-	_viewport.Width = _1stPathBuffers[0]->GetDesc().Width;
-	_viewport.Height = _1stPathBuffers[0]->GetDesc().Height;
+	_viewport.Width = _1stPathBuffers[1]->GetDesc().Width;
+	_viewport.Height = _1stPathBuffers[1]->GetDesc().Height;
 
-	_scissorRect.right = _1stPathBuffers[0]->GetDesc().Width;
-	_scissorRect.bottom = _1stPathBuffers[0]->GetDesc().Height;
+	_scissorRect.right = _1stPathBuffers[1]->GetDesc().Width;
+	_scissorRect.bottom = _1stPathBuffers[1]->GetDesc().Height;
 
 	auto desc = _1stPathBuffers[1]->GetDesc();
 
@@ -1084,7 +1206,7 @@ void Wrapper::PeraUpdate()
 
 	//レンダーターゲットのクリア
 	_cmdList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
-
+	
 	//ペラポリ
 	_cmdList->SetDescriptorHeaps(1, &_srv1stDescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(0, _srv1stDescHeap->GetGPUDescriptorHandleForHeapStart());
@@ -1127,12 +1249,14 @@ void Wrapper::PeraUpdate()
 
 void Wrapper::Pera2Update()
 {
+	unsigned char keyState[256];
+
 	auto result = _cmdAllocator->Reset();							//アロケーターのリセット
 	result = _cmdList->Reset(_cmdAllocator, _pera2pipeline);		//コマンドリストのリセット
 
 	//現在のバックバッファのインデックス
 	auto bbIdx = _swapchain->GetCurrentBackBufferIndex();
-
+	
 	_cmdList->ResourceBarrier(
 		1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1168,11 +1292,14 @@ void Wrapper::Pera2Update()
 	_cmdList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 
 	//ペラポリ
-	_cmdList->SetDescriptorHeaps(1, &_srv2ndDescHeap);
-	_cmdList->SetGraphicsRootDescriptorTable(0, _srv2ndDescHeap->GetGPUDescriptorHandleForHeapStart());
+	_cmdList->SetDescriptorHeaps(1, &_srv1stDescHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(0, _srv1stDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 	_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
 	_cmdList->SetGraphicsRootDescriptorTable(1, _shadow->GetSrvHeap()->GetGPUDescriptorHandleForHeapStart());
+
+	_cmdList->SetDescriptorHeaps(1, &_srv2ndDescHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(2, _srv2ndDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
@@ -1180,6 +1307,31 @@ void Wrapper::Pera2Update()
 	_cmdList->IASetVertexBuffers(0, 1, &_2ndvbView);
 
 	_cmdList->DrawInstanced(4, 1, 0, 0);
+
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+
+	ImGui::SetNextWindowSize(ImVec2(500, 500));
+	ImGui::Begin("gui");
+	ImGui::Bullet();
+	float a = 5.0f;
+	ImGui::SliderAngle("WorldAngle", &a, 0, 360);
+	float col[3] = { 1,0.5,0.1 };
+	ImGui::ColorPicker3("Color", col);
+	ImGui::End();
+
+	ImGui::SetNextWindowPos(ImVec2(500, 500));
+	ImGui::SetNextWindowSize(ImVec2(500, 500));
+	ImGui::Begin("koga");
+	ImGui::SliderAngle("WorldAngle", &a, 0, 360);
+	ImGui::End();
+	ImGui::Render();
+
+
+
+	_cmdList->SetDescriptorHeaps(1, &imguiHeap);//※必須！！ 
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), _cmdList);
 
 	//バリアー
 	_cmdList->ResourceBarrier(

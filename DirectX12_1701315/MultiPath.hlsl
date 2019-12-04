@@ -22,7 +22,7 @@ Output vs(float4 pos : POSITION, float2 uv : TEXCOORD)
 }
 
 //ピクセルシェーダ
-float4 ps(Output input) : SV_Target
+float4 ps(Output input):SV_Target
 {
 
     float d = pow(depth.Sample(smp, input.uv), 100);
@@ -105,5 +105,13 @@ float4 ps(Output input) : SV_Target
 
 
     //通常
+    //if (input.uv.x < 0.2 && input.uv.y < 0.2)
+    //{
+    
+        
+    //}
     return ret;
+    
+
 }
+

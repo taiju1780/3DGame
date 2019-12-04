@@ -38,6 +38,12 @@ struct Out
     float4 weight : WEIGHT;
 };
 
+struct POut
+{
+    float4 col : SV_Target0;
+    float4 hbr : SV_Target1;
+};
+
 //定数レジスタ１
 //マテリアル用
 cbuffer Material : register(b1)
@@ -51,12 +57,6 @@ cbuffer Bones : register(b2)
 {
     matrix boneMatrices[512];
 }
-
-struct POut
-{
-    float4 col : SV_Target0;
-    float4 hbr : SV_Target1;
-};
 
 //頂点シェーダ
 Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
@@ -100,8 +100,10 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
 }
 
 //ピクセルシェーダ
-float4 ps(Out o) : SV_Target
+POut ps(Out o)
 {
+    POut po;
+    
      //視線
     float3 eye = float3(0, 18, -20);
 
@@ -133,24 +135,16 @@ float4 ps(Out o) : SV_Target
    
     //return saturate(float4(tex.Sample(smp, o.uv)) * toonDif * diffuse);
     
-    //表示
-    return saturate(
-            toonDif
-            * diffuse
-            * tex.Sample(smp, o.uv)
-            * sph.Sample(smp, normalUV))
-            + saturate(float4(spec * specular.rgb, 1))
-            + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
-}
+    po.col = saturate(
+                toonDif
+                * diffuse
+                * tex.Sample(smp, o.uv)
+                * sph.Sample(smp, normalUV))
+                + saturate(float4(spec * specular.rgb, 1))
+                + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
+    
+    po.hbr = float4(max(po.col.rgb - 0.8f, 0),1);
 
-POut ps2(Out o)
-{
-    POut output;
-
-    output.col = tex.Sample(smp, o.uv);
-
-    output.hbr = float4(1, 1, 1, 1);
-
-    return output;
+    return po;
 }
 

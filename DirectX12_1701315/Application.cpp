@@ -1,9 +1,14 @@
 #include "Application.h"
 #include "Wrapper.h"
-#include <wrl.h>
+#include <wrl.h>>
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_win32.h"
+#include "imgui/imgui_impl_dx12.h"
 
 constexpr int WINDOW_WIDTH = 1200;
 constexpr int WINDOW_HEIGHT = 800;
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwd, UINT msg, WPARAM wparam, LPARAM lparam);
 
 LRESULT WindowProcedure(HWND hwd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
@@ -11,6 +16,7 @@ LRESULT WindowProcedure(HWND hwd, UINT msg, WPARAM wparam, LPARAM lparam) {
 		PostQuitMessage(0);		//OSに対して[もうこのアプリは終わるんや]と伝える
 		return 0;
 	}
+	ImGui_ImplWin32_WndProcHandler(hwd, msg, wparam, lparam);
 	return DefWindowProc(hwd, msg, wparam, lparam);	//基底の処理を行う
 }
 

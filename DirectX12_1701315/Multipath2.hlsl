@@ -4,6 +4,8 @@ Texture2D<float4> tex : register(t0); //通常テクスチャ
 
 Texture2D<float> depth : register(t1); //深度
 
+Texture2D<float4> bloom : register(t2); //
+
 SamplerState smp : register(s0);
 
 struct Output
@@ -103,20 +105,21 @@ float4 ps(Output input) : SV_Target
     //    return float4(1 - col.rgb, col.a);
     //}
 
-    float4 shrinkCol = GetBokehColor(tex, smp, input.uv * float2(1, 0.5)) +
-                        GetBokehColor(tex, smp,input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
-                        GetBokehColor(tex, smp,input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
-                        GetBokehColor(tex, smp,input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
-
-    return float4(shrinkCol.rgb * 0.5, ret.a);
+   
+    
+    float4 shrinkCol = GetBokehColor(bloom, smp, input.uv * float2(1, 0.5)) +
+                        GetBokehColor(bloom, smp, input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
+                        GetBokehColor(bloom, smp, input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
+                        GetBokehColor(bloom, smp, input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
+        
+    return float4(shrinkCol.rgb + tex.Sample(smp, input.uv).rgb, tex.Sample(smp, input.uv).a);
  
-
     //float4 shrinkCol = tex.Sample(smp, input.uv * float2(1, 0.5)) +
     //            tex.Sample(smp, input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
     //            tex.Sample(smp, input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
     //            tex.Sample(smp, input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
 
     //通常
-    return shrinkCol;
+    return ret;
 }
 

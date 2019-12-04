@@ -5,6 +5,8 @@
 #include <DirectXMath.h>
 #include <vector>
 #include <memory>
+#include <Effekseer.h>
+#include <EffekseerRendererDX12.h>
 
 class Camera;
 class PMDModel;
@@ -112,7 +114,6 @@ private:
 	void InitVerticesPera();
 	void InitPath1stRootSignature();
 
-
 	//ƒyƒ‰2ƒ|ƒŠ
 	D3D12_VERTEX_BUFFER_VIEW _2ndvbView = {};
 	ID3D12Resource* _pera2Buff;
@@ -140,7 +141,20 @@ private:
 	/*ID3D12DescriptorHeap* _bloomrtv;
 	ID3D12DescriptorHeap* _bloomsrv;
 	std::vector<ID3D12Resource*> _bloomBuffers;*/
-	void InitBloomRTVSRV(ID3D12Device * _dev);
+	//void InitBloomRTVSRV(ID3D12Device * _dev);
+
+	//effekseer
+	void InitEffekseer();
+	Effekseer::Manager* efkManager;
+	Effekseer::Effect* effect;
+	EffekseerRenderer::Renderer* efkRenderer;
+	EffekseerRenderer::SingleFrameMemoryPool* efkMemoryPool;
+	EffekseerRenderer::CommandList* efkCmdList;
+	Effekseer::Handle efkHandle;
+
+	//imgui
+	void InitIMGUI(HWND hwnd);
+	ID3D12DescriptorHeap* imguiHeap;
 
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
