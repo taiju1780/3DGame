@@ -300,6 +300,6 @@ public:
 
 	void InitShader();
 
-	void Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std::shared_ptr<Camera> _camera, ID3D12DescriptorHeap* _rtv1stDescHeap);
+	void Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std::shared_ptr<Camera> _camera, ID3D12DescriptorHeap* _rtv1stDescHeap, int InstanceNum);
 };
 

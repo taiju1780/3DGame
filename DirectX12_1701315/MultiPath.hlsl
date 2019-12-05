@@ -105,13 +105,6 @@ float4 ps(Output input):SV_Target
 
 
     //’Êí
-    //if (input.uv.x < 0.2 && input.uv.y < 0.2)
-    //{
-    
-        
-    //}
     return ret;
-    
-
 }
 

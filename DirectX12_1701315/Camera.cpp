@@ -38,13 +38,13 @@ void Camera::InitConstants(ID3D12Device* dev)
 	auto result = dev->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&_rgstDescHeap));
 
 	//カメラ設定
-	XMFLOAT3 eye(0, 18, -50);//視点
-	XMFLOAT3 target(0, 10, 0);//注視点
-	XMFLOAT3 up(0, 1, 0);//上ベクトル
+	eye = XMFLOAT3(0, 18, -50);//視点
+	target = XMFLOAT3(0, 10, 0);//注視点
+	up = XMFLOAT3(0, 1, 0);//上ベクトル
 
 	XMFLOAT3 light(-10, 20, -10);
 	XMMATRIX lightview = XMMatrixLookAtLH(XMLoadFloat3(&light),XMLoadFloat3(&target),XMLoadFloat3(&up));
-	XMMATRIX lightproj = XMMatrixOrthographicLH(40, 40, 0.1f, 300.f);
+	XMMATRIX lightproj = XMMatrixOrthographicLH(200, 200, 0.1f, 300.f);
 
 	_wvp._lvp = lightview * lightproj;
 
@@ -102,34 +102,73 @@ void Camera::InitConstants(ID3D12Device* dev)
 
 void Camera::CameraUpdate(unsigned char keyState[])
 {
+	_wvp._view = XMMatrixLookAtLH(
+		XMLoadFloat3(&eye),
+		XMLoadFloat3(&target),
+		XMLoadFloat3(&up));
+
 	if (GetKeyboardState(keyState)) {
 		//カメラ回転
+		if (keyState[VK_LEFT] & 0x80)
+		{
+			anglex = 0.01f;
+			_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
+		}
+		if (keyState[VK_RIGHT] & 0x80)
+		{
+			anglex = -0.01f;
+			_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
+		}
+		//カメラズームアウト
+		if (keyState[VK_UP] & 0x80)
+		{
+			eye.z++;
+			target.z++;
+		}
+		if (keyState[VK_DOWN] & 0x80)
+		{
+			eye.z--;
+			target.z--;
+		}
+
+		if (keyState['W'] & 0x80)
+		{
+			target.y++;
+			eye.y++;
+		}
+		if (keyState['S'] & 0x80)
+		{
+			target.y--;
+			eye.y--;
+		}
 		if (keyState['A'] & 0x80)
 		{
-			anglex = 0.005f;
-			_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
+			target.x--;
+			eye.x--;
 		}
 		if (keyState['D'] & 0x80)
 		{
-			anglex = -0.005f;
-			_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
+			target.x++;
+			eye.x++;
 		}
 
-		//座標回転
+		//ライト回転
 		if (keyState['L'] & 0x80)
 		{
-			anglex = 0.005f;
-			_wvp._world = DirectX::XMMatrixRotationY(anglex) * _wvp._world;
+			anglex = 0.01f;
+			_wvp._lvp = DirectX::XMMatrixRotationY(anglex) * _wvp._lvp;
 		}
 		if (keyState['J'] & 0x80)
 		{
-			anglex = -0.005f;
-			_wvp._world = DirectX::XMMatrixRotationY(anglex) * _wvp._world;	
+			anglex = -0.01f;
+			_wvp._lvp = DirectX::XMMatrixRotationY(anglex) * _wvp._lvp;
 		}
 	}
+
 	
 	_wvp._wvp = _wvp._world;
 	_wvp._wvp *= _wvp._view;
 	_wvp._wvp *= _wvp._projection;
 	*_mappedWvp = _wvp;
 }
+

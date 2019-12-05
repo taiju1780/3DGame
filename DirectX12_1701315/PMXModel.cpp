@@ -1093,7 +1093,7 @@ void PMXModel::InitShader()
 	_scissorRect.bottom = wsize.h;
 }
 
-void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std::shared_ptr<Camera> _camera, ID3D12DescriptorHeap* _rtv1stDescHeap)
+void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std::shared_ptr<Camera> _camera, ID3D12DescriptorHeap* _rtv1stDescHeap, int InstanceNum)
 {
 	auto& app = Application::GetInstance();
 
@@ -1141,7 +1141,7 @@ void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std
 	for (auto& m : _matData) {
 		_cmdList->SetGraphicsRootDescriptorTable(1, mathandle);
 		mathandle.ptr += incriment_size;
-		_cmdList->DrawIndexedInstanced(m.face_vert_cnt, 1, offset, 0, 0);
+		_cmdList->DrawIndexedInstanced(m.face_vert_cnt, InstanceNum, offset, 0, 0);
 		offset += m.face_vert_cnt;
 	}
 }
@@ -1322,7 +1322,10 @@ void PMXModel::InitPipeline(ID3D12Device* _dev)
 		{"BONEINDEX",0,DXGI_FORMAT_R32G32B32A32_SINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0},
 
 		//ウェイト
-		{"WEIGHT",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 }
+		{"WEIGHT",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+		
+		//インスタンス数
+		{"INSTNO",0,DXGI_FORMAT_R32_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT ,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 }
 	};
 
 

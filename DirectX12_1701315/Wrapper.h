@@ -156,6 +156,9 @@ private:
 	void InitIMGUI(HWND hwnd);
 	ID3D12DescriptorHeap* imguiHeap;
 
+	float clearColor[3];
+	int InstanceNum;
+
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
 	~Wrapper();

@@ -32,6 +32,9 @@ private:
 
 	WVPMatrix _wvp;
 	WVPMatrix* _mappedWvp;
+	DirectX::XMFLOAT3 eye; 
+	DirectX::XMFLOAT3 target;
+	DirectX::XMFLOAT3 up;
 
 public:
 	Camera(ID3D12Device* dev);

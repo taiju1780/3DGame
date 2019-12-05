@@ -114,11 +114,6 @@ float4 ps(Output input) : SV_Target
         
     return float4(shrinkCol.rgb + tex.Sample(smp, input.uv).rgb, tex.Sample(smp, input.uv).a);
  
-    //float4 shrinkCol = tex.Sample(smp, input.uv * float2(1, 0.5)) +
-    //            tex.Sample(smp, input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
-    //            tex.Sample(smp, input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
-    //            tex.Sample(smp, input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
-
     //’Êí
     return ret;
 }

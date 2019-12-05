@@ -33,12 +33,13 @@ struct Out
     min16uint weighttype : WEIGHT_TYPE;
     int4 boneindex : BONEINDEX;
     float4 weight : WEIGHT;
+    uint instNo : INSTNO;
 };
 
 //頂点シェーダ
 Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
         float4 adduv : ADDUV0, float4 adduv2 : ADDUV1, float4 adduv3 : ADDUV2, float4 adduv4 : ADDUV3,
-            min16uint weighttype : WEIGHT_TYPE, int4 boneindex : BONEINDEX, float4 weight : WEIGHT)
+            min16uint weighttype : WEIGHT_TYPE, int4 boneindex : BONEINDEX, float4 weight : WEIGHT, uint instNo : SV_InstanceID)
 {
     Out o;
     
@@ -63,6 +64,9 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
         m = boneMatrices[boneindex.x] * float(weight.x) + boneMatrices[boneindex.y] * (1 - float(weight.x));
     }
 
+        
+    m._m03 -= 10 * (instNo / 5);
+    m._m23 += 10 * (instNo % 5);
     pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));
     o.svpos = mul(lvp, float4(pos, 1));

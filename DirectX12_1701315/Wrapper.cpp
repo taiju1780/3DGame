@@ -817,7 +817,7 @@ void Wrapper::DrawLightView()
 		unsigned int offset = 0;
 
 		for (auto m : pmxmodel->GetMatData()) {
-			_cmdList->DrawIndexedInstanced(m.face_vert_cnt, 1, offset, 0, 0);
+			_cmdList->DrawIndexedInstanced(m.face_vert_cnt, InstanceNum, offset, 0, 0);
 			offset += m.face_vert_cnt;
 		}
 	}
@@ -897,7 +897,7 @@ void Wrapper::InitIMGUI(HWND hwnd)
 	D3D12_DESCRIPTOR_HEAP_DESC heapdesc = {};
 	heapdesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	heapdesc.NodeMask = 0;
-	heapdesc.NumDescriptors = 2;
+	heapdesc.NumDescriptors = 1;
 	heapdesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	auto result = _dev->CreateDescriptorHeap(&heapdesc, IID_PPV_ARGS(&imguiHeap));
@@ -936,6 +936,13 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 			}
 		}
 	}
+
+	//imgui用初期化
+	clearColor[0] = 0;
+	clearColor[1] = 0;
+	clearColor[2] = 0;
+
+	InstanceNum = 1;
 
 	//デバイスの初期化
 	D3D_FEATURE_LEVEL level;
@@ -1058,8 +1065,6 @@ void Wrapper::Update()
 	}
 
 	auto heapStart = _rtv1stDescHeap->GetCPUDescriptorHandleForHeapStart();
-
-	float clearColor[] = { 0,0,0.5f,1.0f };
 	
 	auto bbidx = _swapchain->GetCurrentBackBufferIndex();
 	auto rtvHeapSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -1093,7 +1098,7 @@ void Wrapper::Update()
 	_cmdList->ClearDepthStencilView(_dsvHeap->GetCPUDescriptorHandleForHeapStart(), D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
 
 	for (auto &xmodel : _pmxModels) {
-		xmodel->Draw(_dev, _cmdList, _camera, _rtv1stDescHeap);
+		xmodel->Draw(_dev, _cmdList, _camera, _rtv1stDescHeap, InstanceNum);
 	}
 
 	//床
@@ -1132,8 +1137,6 @@ void Wrapper::Update()
 	efkManager->Draw();
 	efkRenderer->EndRendering();
 	EffekseerRendererDX12::EndCommandList(efkCmdList);
-
-	
 
 	for (int i = 0; i < _1stPathBuffers.size(); ++i) {
 		//バリア閉じ
@@ -1200,9 +1203,6 @@ void Wrapper::PeraUpdate()
 
 	//レンダーターゲット設定
 	_cmdList->OMSetRenderTargets(1, &rtv, false, nullptr);
-
-	//クリアカラー設定
-	float clearColor[] = { 0.5, 0.5, 0.5,1.f };
 
 	//レンダーターゲットのクリア
 	_cmdList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
@@ -1285,9 +1285,6 @@ void Wrapper::Pera2Update()
 	//レンダーターゲット設定
 	_cmdList->OMSetRenderTargets(1, &rtv, false, nullptr);
 
-	//クリアカラー設定
-	float clearColor[] = { 0.5, 0.5, 0.5,1.f };
-
 	//レンダーターゲットのクリア
 	_cmdList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 
@@ -1314,23 +1311,12 @@ void Wrapper::Pera2Update()
 
 	ImGui::SetNextWindowSize(ImVec2(500, 500));
 	ImGui::Begin("gui");
-	ImGui::Bullet();
-	float a = 5.0f;
-	ImGui::SliderAngle("WorldAngle", &a, 0, 360);
-	float col[3] = { 1,0.5,0.1 };
-	ImGui::ColorPicker3("Color", col);
-	ImGui::End();
-
-	ImGui::SetNextWindowPos(ImVec2(500, 500));
-	ImGui::SetNextWindowSize(ImVec2(500, 500));
-	ImGui::Begin("koga");
-	ImGui::SliderAngle("WorldAngle", &a, 0, 360);
+	ImGui::SliderInt("InstanceNum", &InstanceNum,1,25);
+	ImGui::ColorPicker3("BackColor", clearColor,true);
 	ImGui::End();
 	ImGui::Render();
 
-
-
-	_cmdList->SetDescriptorHeaps(1, &imguiHeap);//※必須！！ 
+	_cmdList->SetDescriptorHeaps(1, &imguiHeap);
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), _cmdList);
 
 	//バリアー
