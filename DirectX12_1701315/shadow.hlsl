@@ -65,7 +65,7 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
     }
 
         
-    m._m03 -= 10 * (instNo / 5);
+    m._m03 -= 10 * (instNo / 5) + 5 * ((instNo % 5) % 2);
     m._m23 += 10 * (instNo % 5);
     pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));

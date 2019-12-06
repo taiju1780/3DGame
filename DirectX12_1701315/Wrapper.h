@@ -136,12 +136,9 @@ private:
 	//影
 	void DrawLightView();
 
-	//ブルーム
-	//bloom
-	/*ID3D12DescriptorHeap* _bloomrtv;
-	ID3D12DescriptorHeap* _bloomsrv;
-	std::vector<ID3D12Resource*> _bloomBuffers;*/
-	//void InitBloomRTVSRV(ID3D12Device * _dev);
+	//ファイルパス
+	std::string modelPath;
+	std::string motionPath;
 
 	//effekseer
 	void InitEffekseer();

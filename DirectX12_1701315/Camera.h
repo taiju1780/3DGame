@@ -29,12 +29,16 @@ private:
 	float angle;
 	float anglex;
 	float angley;
+	float lightanglex;
 
 	WVPMatrix _wvp;
 	WVPMatrix* _mappedWvp;
 	DirectX::XMFLOAT3 eye; 
 	DirectX::XMFLOAT3 target;
 	DirectX::XMFLOAT3 up;
+
+	DirectX::XMFLOAT3 light; 
+	DirectX::XMMATRIX lightproj;
 
 public:
 	Camera(ID3D12Device* dev);

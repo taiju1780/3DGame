@@ -44,7 +44,7 @@ void Camera::InitConstants(ID3D12Device* dev)
 
 	XMFLOAT3 light(-10, 20, -10);
 	XMMATRIX lightview = XMMatrixLookAtLH(XMLoadFloat3(&light),XMLoadFloat3(&target),XMLoadFloat3(&up));
-	XMMATRIX lightproj = XMMatrixOrthographicLH(200, 200, 0.1f, 300.f);
+	XMMATRIX lightproj = XMMatrixOrthographicLH(200, 200, 0.1f, 500.0f);
 
 	_wvp._lvp = lightview * lightproj;
 
@@ -102,44 +102,35 @@ void Camera::InitConstants(ID3D12Device* dev)
 
 void Camera::CameraUpdate(unsigned char keyState[])
 {
-	_wvp._view = XMMatrixLookAtLH(
-		XMLoadFloat3(&eye),
-		XMLoadFloat3(&target),
-		XMLoadFloat3(&up));
-
 	if (GetKeyboardState(keyState)) {
 		//カメラ回転
 		if (keyState[VK_LEFT] & 0x80)
 		{
-			anglex = 0.01f;
-			_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
+			anglex += 0.01f;
 		}
 		if (keyState[VK_RIGHT] & 0x80)
 		{
-			anglex = -0.01f;
-			_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
+			anglex += -0.01f;
 		}
-		//カメラズームアウト
 		if (keyState[VK_UP] & 0x80)
+		{
+			angley += 0.01f;
+		}
+		if (keyState[VK_DOWN] & 0x80)
+		{
+			angley += -0.01f;
+		}
+
+		//カメラ移動
+		if (keyState['W'] & 0x80)
 		{
 			eye.z++;
 			target.z++;
 		}
-		if (keyState[VK_DOWN] & 0x80)
+		if (keyState['S'] & 0x80)
 		{
 			eye.z--;
 			target.z--;
-		}
-
-		if (keyState['W'] & 0x80)
-		{
-			target.y++;
-			eye.y++;
-		}
-		if (keyState['S'] & 0x80)
-		{
-			target.y--;
-			eye.y--;
 		}
 		if (keyState['A'] & 0x80)
 		{
@@ -151,20 +142,43 @@ void Camera::CameraUpdate(unsigned char keyState[])
 			target.x++;
 			eye.x++;
 		}
+		if (keyState['E'] & 0x80)
+		{
+			target.y++;
+			eye.y++;
+		}
+		if (keyState['Q'] & 0x80)
+		{
+			target.y--;
+			eye.y--;
+		}
 
 		//ライト回転
 		if (keyState['L'] & 0x80)
 		{
-			anglex = 0.01f;
-			_wvp._lvp = DirectX::XMMatrixRotationY(anglex) * _wvp._lvp;
+			lightanglex = 0.01f;
+
+			_wvp._lvp = DirectX::XMMatrixRotationY(anglex) * _wvp._lvp;		//ライト回転
 		}
 		if (keyState['J'] & 0x80)
 		{
-			anglex = -0.01f;
-			_wvp._lvp = DirectX::XMMatrixRotationY(anglex) * _wvp._lvp;
+			lightanglex = -0.01f;
+
+			_wvp._lvp = DirectX::XMMatrixRotationY(anglex) * _wvp._lvp;		//ライト回転
 		}
 	}
 
+	_wvp._view = XMMatrixLookAtLH(
+			XMLoadFloat3(&eye),
+			XMLoadFloat3(&target),
+			XMLoadFloat3(&up));
+	auto ray = XMLoadFloat3(&target) - XMLoadFloat3(&eye);
+	auto right = XMVector3Cross(XMLoadFloat3(&up), ray);
+
+	auto upper = XMVector3Cross(ray, right);
+
+	_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
+	_wvp._view = DirectX::XMMatrixRotationX(angley) * _wvp._view;	// 回転
 	
 	_wvp._wvp = _wvp._world;
 	_wvp._wvp *= _wvp._view;

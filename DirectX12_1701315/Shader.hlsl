@@ -88,7 +88,7 @@ Out vs(float3 pos : POSITION, float2 uv : TEXCOORD, float3 normal : NORMAL,
         m = boneMatrices[boneindex.x] * float(weight.x) + boneMatrices[boneindex.y] * (1 - float(weight.x));
     }
     
-    m._m03 -= 10 * (instNo / 5);
+    m._m03 -= 10 * (instNo / 5) + 5 * ((instNo % 5) % 2);
     m._m23 += 10 * (instNo % 5);
     pos = mul(m, float4(pos, 1));
     o.pos = mul(world, float4(pos, 1));
@@ -136,8 +136,6 @@ POut ps(Out o)
     //toon
     float4 toonDif = toon.Sample(toonsmp, float2(0, 1.0 - diffuseB));
    
-    //return saturate(float4(tex.Sample(smp, o.uv)) * toonDif * diffuse);
-    
     po.col = saturate(
                 toonDif
                 * diffuse

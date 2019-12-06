@@ -43,8 +43,10 @@ float4 ps(Output input) : SV_Target
     //uv座標変換
     float2 suv = (Pos.xy + float2(1, -1)) * float2(0.5, -0.5);
 
+    float2 dot = length(float2(0.5, 0.5) - suv);
+    
     //マップに格納された深度値
-    float depth = pow(shadow.Sample(smp, suv), 10000);
+    float depth = pow(shadow.Sample(smp, suv), 100);
 
     //ライトと深度値の比較
     //return float4(depth, depth, depth, 1);

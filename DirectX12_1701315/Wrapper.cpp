@@ -990,7 +990,7 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	//const char* xfilepath = ("PMXModel/YYB式改変初音ミク(PRT.B-Cos)/YYB式改変初音ミク(PRT.B-Cos).pmx");
 	//const char* xfilepath = ("PMXModel/レムとラム Ver. 1.02/Rem Ver. 1.02.pmx");
 	//const char* xfilepath = ("PMXModel/レムとラム Ver. 1.02/Ram.pmx");
-	const char* xfilepath = ("PMXModel/na_2b_0407h/na_2b_0407.pmx");
+	const char* xfilepath = ("PMXModel/NieR/2B.pmx");
 	//const char* x2filepath = ("PMXModel/ちびルーミア/ちびルーミア.pmx");
 	const char* x2filepath = ("PMXModel/TB/TB.pmx");
 
@@ -1002,10 +1002,20 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	//モーション(ダンス)
 	//const char* mfilepath = ("Motion/45秒GUMI.vmd");
-	const char* mfilepath = ("Motion/ストロボナイツモーション.vmd");
+	const char* mfilepath = ("Motion/Strobenights.vmd");
 	//const char* m2filepath = ("Motion/えれくとりっくえんじぇぅ.vmd");
 	//const char* mfilepath = ("Motion/ヤゴコロダンス.vmd");
 	const char* m2filepath = ("Motion/45秒MIKU.vmd");
+
+	std::string x = xfilepath;
+	size_t s = x.find_last_of("/") + 1;
+	x.erase(0,s);
+	modelPath = "Model  = " + x;
+
+	std::string m = mfilepath;
+	s = m.find_last_of("/") + 1;
+	m.erase(0,s);
+	motionPath = "Motion = " + m;
 
 	_model.reset(new PMDModel(cfilepath,_dev));
 
@@ -1119,7 +1129,7 @@ void Wrapper::Update()
 	//エフェクト
 	if (GetKeyboardState(keyState)) {
 		//エフェクト描画
-		if (keyState['S'] & 0x80)
+		if (keyState[VK_SPACE] & 0x80)
 		{
 			if (efkManager->Exists(efkHandle)) {
 				efkManager->StopEffect(efkHandle);
@@ -1249,8 +1259,6 @@ void Wrapper::PeraUpdate()
 
 void Wrapper::Pera2Update()
 {
-	unsigned char keyState[256];
-
 	auto result = _cmdAllocator->Reset();							//アロケーターのリセット
 	result = _cmdList->Reset(_cmdAllocator, _pera2pipeline);		//コマンドリストのリセット
 
@@ -1311,6 +1319,10 @@ void Wrapper::Pera2Update()
 
 	ImGui::SetNextWindowSize(ImVec2(500, 500));
 	ImGui::Begin("gui");
+	ImGui::Bullet();
+	ImGui::Text(modelPath.c_str());
+	ImGui::Bullet();
+	ImGui::Text(motionPath.c_str());
 	ImGui::SliderInt("InstanceNum", &InstanceNum,1,25);
 	ImGui::ColorPicker3("BackColor", clearColor,true);
 	ImGui::End();
