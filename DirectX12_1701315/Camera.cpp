@@ -177,8 +177,11 @@ void Camera::CameraUpdate(unsigned char keyState[])
 
 	auto upper = XMVector3Cross(ray, right);
 
-	_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// ‰ñ“]
-	_wvp._view = DirectX::XMMatrixRotationX(angley) * _wvp._view;	// ‰ñ“]
+	_wvp._view *= XMMatrixRotationQuaternion(XMQuaternionRotationAxis(right, angley));
+	_wvp._view *= XMMatrixRotationQuaternion(XMQuaternionRotationAxis(upper, anglex));
+
+	//_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// ‰ñ“]
+	//_wvp._view = DirectX::XMMatrixRotationX(angley) * _wvp._view;	// ‰ñ“]
 	
 	_wvp._wvp = _wvp._world;
 	_wvp._wvp *= _wvp._view;
