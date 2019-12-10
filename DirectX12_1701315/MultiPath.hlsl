@@ -60,19 +60,22 @@ float4 ps(Output input):SV_Target
     //ü‰æ
     //l‰æ‘f•ªˆê‹C‚É‚â‚é
     //—×‚è‡‚¤‰æ‘f‚Æ‚Ì·•ª‚ğ’²‚×‚é
+   
     //ret = ret * 4
     //- tex.Sample(smp, input.uv + float2(-dx, 0))
     //- tex.Sample(smp, input.uv + float2(dx, 0))
     //- tex.Sample(smp, input.uv + float2(0, dy))
     //- tex.Sample(smp, input.uv + float2(0, -dy));
 
-    ////ü‚ğ•ü‚è‚ğ”’‚É‚µ‚½‚¢‚Ì‚Å”½“]‚³‚¹‚é
+    //ü‚ğ•ü‚è‚ğ”’‚É‚µ‚½‚¢‚Ì‚Å”½“]‚³‚¹‚é
     //float brightnass = dot(b.rgb, 1 - ret.rgb);
 
-    ////ü‚ğ‹­’²
+    //ü‚ğ‹­’²
     //brightnass = pow(brightnass, 10);
 
     //return float4(brightnass, brightnass, brightnass, 1);
+    
+        
 
     //—ÖŠsü’Šo
     //ret = ret * -4

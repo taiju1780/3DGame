@@ -1342,9 +1342,10 @@ void PMXModel::InitPipeline(ID3D12Device* _dev)
 
 	//レンダーターゲット
 	////マルチレンダーターゲット
-	gpsDesc.NumRenderTargets = 2;
+	gpsDesc.NumRenderTargets = 3;
 	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	gpsDesc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.RTVFormats[2] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	//深度ステンシル
 	gpsDesc.DepthStencilState.DepthEnable = true;

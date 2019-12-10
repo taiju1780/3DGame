@@ -112,14 +112,14 @@ void Camera::CameraUpdate(unsigned char keyState[])
 		{
 			anglex += -0.01f;
 		}
-		if (keyState[VK_UP] & 0x80)
+		/*if (keyState[VK_UP] & 0x80)
 		{
 			angley += 0.01f;
 		}
 		if (keyState[VK_DOWN] & 0x80)
 		{
 			angley += -0.01f;
-		}
+		}*/
 
 		//カメラ移動
 		if (keyState['W'] & 0x80)
@@ -142,12 +142,12 @@ void Camera::CameraUpdate(unsigned char keyState[])
 			target.x++;
 			eye.x++;
 		}
-		if (keyState['E'] & 0x80)
+		if (keyState[VK_UP] & 0x80)
 		{
 			target.y++;
 			eye.y++;
 		}
-		if (keyState['Q'] & 0x80)
+		if (keyState[VK_DOWN] & 0x80)
 		{
 			target.y--;
 			eye.y--;
@@ -158,13 +158,13 @@ void Camera::CameraUpdate(unsigned char keyState[])
 		{
 			lightanglex = 0.01f;
 
-			_wvp._lvp = DirectX::XMMatrixRotationY(anglex) * _wvp._lvp;		//ライト回転
+			_wvp._lvp = DirectX::XMMatrixRotationY(lightanglex) * _wvp._lvp;		//ライト回転
 		}
 		if (keyState['J'] & 0x80)
 		{
 			lightanglex = -0.01f;
 
-			_wvp._lvp = DirectX::XMMatrixRotationY(anglex) * _wvp._lvp;		//ライト回転
+			_wvp._lvp = DirectX::XMMatrixRotationY(lightanglex) * _wvp._lvp;		//ライト回転
 		}
 	}
 
@@ -172,16 +172,20 @@ void Camera::CameraUpdate(unsigned char keyState[])
 			XMLoadFloat3(&eye),
 			XMLoadFloat3(&target),
 			XMLoadFloat3(&up));
-	auto ray = XMLoadFloat3(&target) - XMLoadFloat3(&eye);
-	auto right = XMVector3Cross(XMLoadFloat3(&up), ray);
 
-	auto upper = XMVector3Cross(ray, right);
+	//auto ray = XMLoadFloat3(&target) - XMLoadFloat3(&eye);
+	//auto right = XMVector3Cross(XMLoadFloat3(&up), ray);
 
-	_wvp._view *= XMMatrixRotationQuaternion(XMQuaternionRotationAxis(right, angley));
-	_wvp._view *= XMMatrixRotationQuaternion(XMQuaternionRotationAxis(upper, anglex));
+	////右ベクトル軸に回転
+	//_wvp._view *= XMMatrixRotationQuaternion(XMQuaternionRotationAxis(right, angley));
 
-	//_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
-	//_wvp._view = DirectX::XMMatrixRotationX(angley) * _wvp._view;	// 回転
+	//auto upper = XMVector3Cross(ray, right);
+
+	////上ベクトル軸に回転
+	//_wvp._view *= XMMatrixRotationQuaternion(XMQuaternionRotationAxis(upper, anglex));
+
+	_wvp._view = DirectX::XMMatrixRotationY(anglex) * _wvp._view;	// 回転
+	_wvp._view = DirectX::XMMatrixRotationX(angley) * _wvp._view;	// 回転
 	
 	_wvp._wvp = _wvp._world;
 	_wvp._wvp *= _wvp._view;

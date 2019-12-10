@@ -4,7 +4,7 @@ Texture2D<float4> tex : register(t0); //通常テクスチャ
 
 Texture2D<float> depth : register(t1); //深度
 
-Texture2D<float4> bloom : register(t2); //
+Texture2D<float4> bloom : register(t2); //ブルームかけたいテクスチャ
 
 SamplerState smp : register(s0);
 
@@ -74,21 +74,32 @@ float4 ps(Output input) : SV_Target
 
     //線画
     //四画素分一気にやる
+
     //隣り合う画素との差分を調べる
-    //ret = ret * 4
-    //- tex.Sample(smp, input.uv + float2(-dx, 0))
-    //- tex.Sample(smp, input.uv + float2(dx, 0))
-    //- tex.Sample(smp, input.uv + float2(0, dy))
-    //- tex.Sample(smp, input.uv + float2(0, -dy));
+    
+    if (input.uv.x < 0.2f && input.uv.y < 0.2f)
+    {
+        float4 ret = tex.Sample(smp, input.uv * 5);
+        ret = ret * 4
+        - tex.Sample(smp, input.uv * 5 + float2(-dx, 0))
+        - tex.Sample(smp, input.uv * 5 + float2(dx, 0))
+        - tex.Sample(smp, input.uv * 5 + float2(0, dy))
+        - tex.Sample(smp, input.uv * 5 + float2(0, -dy));
 
-    //線を黒周りを白にしたいので反転させる
+        //線を黒周りを白にしたいので反転させる
+        float brightnass = dot(b.rgb, 1 - ret.rgb);
 
-    //float brightnass = dot(b.rgb, 1 - ret.rgb);
+        //線を強調
+        brightnass = pow(brightnass, 10);
 
-    //線を強調
-    //brightnass = pow(brightnass, 10);
-
-    //return float4(brightnass, brightnass, brightnass, 1);
+        return float4(brightnass, brightnass, brightnass, 1);
+    }
+    else if (input.uv.x < 0.2f && input.uv.y < 0.4f)
+    {
+        float _depth = depth.Sample(smp, input.uv * 5);
+        _depth = 1.0f - pow(_depth, 30);
+        return float4(_depth, _depth, _depth, 1);
+    }
 
     ////ポスタリゼーション
 
@@ -97,16 +108,6 @@ float4 ps(Output input) : SV_Target
     ////↑↓どちらでも可
     //return float4(trunc(post * 4) / 4.0f, 1);
 
-   
-    //反転
-    //if (input.uv.y < 0.6 && input.uv.y > 0.4)
-    //{
-    //    float4 col = tex.Sample(smp, input.uv);
-    //    return float4(1 - col.rgb, col.a);
-    //}
-
-   
-    
     float4 shrinkCol = GetBokehColor(bloom, smp, input.uv * float2(1, 0.5)) +
                         GetBokehColor(bloom, smp, input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
                         GetBokehColor(bloom, smp, input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
