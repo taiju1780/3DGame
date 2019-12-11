@@ -76,6 +76,17 @@ float4 ps(Output input) : SV_Target
     //l‰æ‘f•ªˆê‹C‚É‚â‚é
 
     //—×‚è‡‚¤‰æ‘f‚Æ‚Ì·•ª‚ğ’²‚×‚é
+    ret = ret * 4
+        - tex.Sample(smp, input.uv * 5 + float2(-dx, 0))
+        - tex.Sample(smp, input.uv * 5 + float2(dx, 0))
+        - tex.Sample(smp, input.uv * 5 + float2(0, dy))
+        - tex.Sample(smp, input.uv * 5 + float2(0, -dy));
+
+        //ü‚ğ•ü‚è‚ğ”’‚É‚µ‚½‚¢‚Ì‚Å”½“]‚³‚¹‚é
+    float brightnass = dot(b.rgb, 1 - ret.rgb);
+
+        //ü‚ğ‹­’²
+    brightnass = pow(brightnass, 10);
     
     if (input.uv.x < 0.2f && input.uv.y < 0.2f)
     {
@@ -112,8 +123,15 @@ float4 ps(Output input) : SV_Target
                         GetBokehColor(bloom, smp, input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
                         GetBokehColor(bloom, smp, input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
                         GetBokehColor(bloom, smp, input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
-        
-    return float4(shrinkCol.rgb + tex.Sample(smp, input.uv).rgb, tex.Sample(smp, input.uv).a);
+    
+    return float4(
+    shrinkCol.rgb
+    + float3(
+    (tex.Sample(smp, input.uv).r ),
+    (tex.Sample(smp, input.uv).g ),
+    (tex.Sample(smp, input.uv).b )
+    ), 
+    tex.Sample(smp, input.uv).a);
  
     //’Êí
     return ret;
