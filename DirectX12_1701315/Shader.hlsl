@@ -43,6 +43,7 @@ struct POut
 {
     float4 col : SV_Target0;
     float4 hbr : SV_Target1;
+    float4 texcolor : SV_Target2;
 };
 
 //’è”ƒŒƒWƒXƒ^‚P
@@ -145,6 +146,8 @@ POut ps(Out o)
                 + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
     
     po.hbr = float4(max(po.col.rgb - 0.8f, 0), 1);
+    
+    po.texcolor = float4(1,0,0,1);
     
     return po;
 }

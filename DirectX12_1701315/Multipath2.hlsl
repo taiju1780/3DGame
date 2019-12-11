@@ -6,6 +6,8 @@ Texture2D<float> depth : register(t1); //深度
 
 Texture2D<float4> bloom : register(t2); //ブルームかけたいテクスチャ
 
+Texture2D<float4> texcol : register(t3); //モデルのテクスチャカラーのみ
+
 SamplerState smp : register(s0);
 
 struct Output
@@ -105,12 +107,18 @@ float4 ps(Output input) : SV_Target
 
         return float4(brightnass, brightnass, brightnass, 1);
     }
+    
     else if (input.uv.x < 0.2f && input.uv.y < 0.4f)
     {
         float _depth = depth.Sample(smp, input.uv * 5);
         _depth = 1.0f - pow(_depth, 30);
         return float4(_depth, _depth, _depth, 1);
     }
+    
+    else if (input.uv.x < 0.2f && input.uv.y < 0.6f)
+    {
+        return float4(texcol.Sample(smp, input.uv * 5).rgb, 1);
+    } 
 
     ////ポスタリゼーション
 
@@ -124,14 +132,7 @@ float4 ps(Output input) : SV_Target
                         GetBokehColor(bloom, smp, input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
                         GetBokehColor(bloom, smp, input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
     
-    return float4(
-    shrinkCol.rgb
-    + float3(
-    (tex.Sample(smp, input.uv).r ),
-    (tex.Sample(smp, input.uv).g ),
-    (tex.Sample(smp, input.uv).b )
-    ), 
-    tex.Sample(smp, input.uv).a);
+    return float4(shrinkCol.rgb + tex.Sample(smp, input.uv).rgb, tex.Sample(smp, input.uv).a);
  
     //通常
     return ret;

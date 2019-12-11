@@ -119,7 +119,7 @@ private:
 	ID3D12Resource* _pera2Buff;
 
 	//2パス目に使用するレンダリングバッファ
-	ID3D12Resource* _2ndPathBuff;
+	std::vector<ID3D12Resource*> _2ndPathBuffers;
 	ID3D12DescriptorHeap* _rtv2ndDescHeap = nullptr;		//RTV(レンダーターゲット)デスクリプタヒープ
 	ID3D12DescriptorHeap *_srv2ndDescHeap = nullptr;		//その他(テクスチャ、定数)デスクリプタヒープ
 
