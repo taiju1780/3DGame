@@ -44,6 +44,7 @@ struct POut
     float4 col : SV_Target0;
     float4 hbr : SV_Target1;
     float4 texcolor : SV_Target2;
+    float4 outline : SV_Target3;
 };
 
 //定数レジスタ１
@@ -137,6 +138,7 @@ POut ps(Out o)
     //toon
     float4 toonDif = toon.Sample(toonsmp, float2(0, 1.0 - diffuseB));
    
+    //通常モデル描画用
     po.col = saturate(
                 toonDif
                 * diffuse
@@ -145,9 +147,14 @@ POut ps(Out o)
                 + saturate(float4(spec * specular.rgb, 1))
                 + float4(tex.Sample(smp, o.uv).rgb * ambient * 0.2, 1);
     
+    //ブルーム用(高輝度抜き取り)
     po.hbr = float4(max(po.col.rgb - 0.8f, 0), 1);
     
-    po.texcolor = float4(1,0,0,1);
+    //テクスチャカラーのみ
+    po.texcolor = tex.Sample(smp,o.uv) * diffuse;
+    
+    //アウトライン
+    po.outline = tex.Sample(smp, o.uv);
     
     return po;
 }

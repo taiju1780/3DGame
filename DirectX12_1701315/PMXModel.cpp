@@ -1112,7 +1112,7 @@ void PMXModel::Draw(ID3D12Device* _dev, ID3D12GraphicsCommandList* _cmdList, std
 	_cmdList->RSSetViewports(1, &_viewport);
 	_cmdList->RSSetScissorRects(1, &_scissorRect);
 
-	float clearColor[] = { 0,0,0.5f,1.0f };
+	float clearColor[] = { 1,1,1,1.0f };
 
 	_cmdList->IASetVertexBuffers(0, 1, &_vbView);
 	_cmdList->IASetIndexBuffer(&_idxbView);
@@ -1342,17 +1342,18 @@ void PMXModel::InitPipeline(ID3D12Device* _dev)
 
 	//レンダーターゲット
 	////マルチレンダーターゲット
-	gpsDesc.NumRenderTargets = 3;
+	gpsDesc.NumRenderTargets = 4;
 	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	gpsDesc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	gpsDesc.RTVFormats[2] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.RTVFormats[3] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	//深度ステンシル
-	gpsDesc.DepthStencilState.DepthEnable = true;
-	gpsDesc.DepthStencilState.StencilEnable = false;
-	gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
-	gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	gpsDesc.DepthStencilState.DepthEnable		= true;
+	gpsDesc.DepthStencilState.StencilEnable		= false;
+	gpsDesc.DepthStencilState.DepthWriteMask	= D3D12_DEPTH_WRITE_MASK_ALL;
+	gpsDesc.DepthStencilState.DepthFunc			= D3D12_COMPARISON_FUNC_LESS;
+	gpsDesc.DSVFormat							= DXGI_FORMAT_D32_FLOAT;
 
 	//ラスタライザ
 	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);

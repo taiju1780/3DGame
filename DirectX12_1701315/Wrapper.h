@@ -66,7 +66,7 @@ private:
 	D3D12_VIEWPORT _viewport;
 	D3D12_RECT _scissorRect;
 
-	//画像関係
+	//画像関係(歪み用テクスチャ)
 	void InitTexture();
 	ID3D12Resource* _texbuff;
 	

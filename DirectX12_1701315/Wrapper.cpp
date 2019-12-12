@@ -241,6 +241,11 @@ void Wrapper::InitTexture()
 {
 	Application& app = Application::GetInstance();
 
+	//画像読み込み
+	TexMetadata metadata;
+	ScratchImage img;
+	auto result = LoadFromWICFile(L"img/mask.png", WIC_FLAGS_NONE, &metadata, img);
+
 	D3D12_HEAP_PROPERTIES heapprop = {};
 	heapprop.Type					= D3D12_HEAP_TYPE_CUSTOM;
 	heapprop.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
@@ -250,8 +255,8 @@ void Wrapper::InitTexture()
 
 	D3D12_RESOURCE_DESC texDesc = {};
 	texDesc.Alignment			= 0;
-	texDesc.Width				= app.GetWIndowSize().w;
-	texDesc.Height				= app.GetWIndowSize().h;
+	texDesc.Width				= metadata.width;
+	texDesc.Height				= metadata.height;
 	texDesc.DepthOrArraySize	= 1;
 	texDesc.MipLevels			= 1;
 	texDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -269,7 +274,7 @@ void Wrapper::InitTexture()
 	clearValue.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
 	std::copy(std::begin(clearColor), std::end(clearColor), clearValue.Color);
 
-	auto result = _dev->CreateCommittedResource(
+	result = _dev->CreateCommittedResource(
 		&heapprop,
 		D3D12_HEAP_FLAG_NONE,
 		&texDesc,
@@ -288,10 +293,6 @@ void Wrapper::InitTexture()
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 
-	//画像読み込み
-	TexMetadata metadata;
-	ScratchImage img;
-	result = LoadFromWICFile(L"img/IMG_0164.png", WIC_FLAGS_NONE, &metadata, img);
 
 	D3D12_RESOURCE_DESC resdesk;
 	resdesk = _texbuff->GetDesc();
@@ -356,7 +357,7 @@ void Wrapper::InitPath1stRTVSRV()
 	D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
 	HeapDesc.Flags						= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	HeapDesc.NodeMask					= 0;
-	HeapDesc.NumDescriptors				= 3;
+	HeapDesc.NumDescriptors				= 4;
 	HeapDesc.Type						= D3D12_DESCRIPTOR_HEAP_TYPE_RTV;	//ディスクリプタの型(レンダーターゲットビュー)
 
 	//rtvデスクリプタヒープ作成
@@ -367,7 +368,7 @@ void Wrapper::InitPath1stRTVSRV()
 	HeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_srv1stDescHeap));
 
-	_1stPathBuffers.resize(3);
+	_1stPathBuffers.resize(4);
 
 	//ヒーププロパティ
 	D3D12_HEAP_PROPERTIES heapprop = {};
@@ -657,8 +658,8 @@ void Wrapper::InitPath2ndRootSignature()
 	ID3DBlob* rootSignatureBlob = nullptr;	//ルートシグネチャをつくるための材料 
 	ID3DBlob* error = nullptr;	//エラー出た時の対処
 
-	D3D12_DESCRIPTOR_RANGE descTblrange[4] = {};
-	D3D12_ROOT_PARAMETER rootparam[4] = {};
+	D3D12_DESCRIPTOR_RANGE descTblrange[6] = {};
+	D3D12_ROOT_PARAMETER rootparam[6] = {};
 
 	//t0
 	descTblrange[0].NumDescriptors						= 1;
@@ -683,6 +684,18 @@ void Wrapper::InitPath2ndRootSignature()
 	descTblrange[3].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblrange[3].BaseShaderRegister					= 3;
 	descTblrange[3].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	
+	//t4(アウトラインのみ)
+	descTblrange[4].NumDescriptors						= 1;
+	descTblrange[4].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblrange[4].BaseShaderRegister					= 4;
+	descTblrange[4].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	
+	//t5(ノイズテクスチャ)
+	descTblrange[5].NumDescriptors						= 1;
+	descTblrange[5].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblrange[5].BaseShaderRegister					= 5;
+	descTblrange[5].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	//デスクリプターテーブル設定
 	rootparam[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -705,10 +718,20 @@ void Wrapper::InitPath2ndRootSignature()
 	rootparam[3].DescriptorTable.NumDescriptorRanges	= 1;
 	rootparam[3].DescriptorTable.pDescriptorRanges		= &descTblrange[3];
 
+	rootparam[4].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[4].ShaderVisibility						= D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[4].DescriptorTable.NumDescriptorRanges	= 1;
+	rootparam[4].DescriptorTable.pDescriptorRanges		= &descTblrange[4];
+	
+	rootparam[5].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[5].ShaderVisibility						= D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[5].DescriptorTable.NumDescriptorRanges	= 1;
+	rootparam[5].DescriptorTable.pDescriptorRanges		= &descTblrange[5];
+
 	D3D12_ROOT_SIGNATURE_DESC rsd = {};
 	rsd.Flags					= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsd.pParameters				= rootparam;
-	rsd.NumParameters			= 4;
+	rsd.NumParameters			= 6;
 	rsd.pStaticSamplers			= &samplerDesc;
 	rsd.NumStaticSamplers		= 1;
 
@@ -738,26 +761,32 @@ void Wrapper::InitDescriptorHeapDSV()
 
 	auto result = _dev->CreateDescriptorHeap(&_dsvDesc, IID_PPV_ARGS(&_dsvHeap));
 
+	//シェーダリソースビュー
+	_dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	_dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+	result = _dev->CreateDescriptorHeap(&_dsvDesc, IID_PPV_ARGS(&_depthSrvHeap));
+
 	//深度バッファ
 	D3D12_HEAP_PROPERTIES heappropDsv = {};
-	heappropDsv.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	heappropDsv.CreationNodeMask = 0;
-	heappropDsv.VisibleNodeMask = 0;
-	heappropDsv.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	heappropDsv.Type = D3D12_HEAP_TYPE_DEFAULT;
+	heappropDsv.CPUPageProperty			= D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	heappropDsv.CreationNodeMask		= 0;
+	heappropDsv.VisibleNodeMask			= 0;
+	heappropDsv.MemoryPoolPreference	= D3D12_MEMORY_POOL_UNKNOWN;
+	heappropDsv.Type					= D3D12_HEAP_TYPE_DEFAULT;
 
 	D3D12_RESOURCE_DESC dsvDesc = {};
-	dsvDesc.Alignment = 0;
-	dsvDesc.Width = app.GetWIndowSize().w;
-	dsvDesc.Height = app.GetWIndowSize().h;
-	dsvDesc.DepthOrArraySize = 1;
-	dsvDesc.MipLevels = 0;
-	dsvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-	dsvDesc.SampleDesc.Count = 1;
-	dsvDesc.SampleDesc.Quality = 0;
-	dsvDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	dsvDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-	dsvDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	dsvDesc.Alignment				= 0;
+	dsvDesc.Width					= app.GetWIndowSize().w;
+	dsvDesc.Height					= app.GetWIndowSize().h;
+	dsvDesc.DepthOrArraySize		= 1;
+	dsvDesc.MipLevels				= 0;
+	dsvDesc.Format					= DXGI_FORMAT_R32_TYPELESS;
+	dsvDesc.SampleDesc.Count		= 1;
+	dsvDesc.SampleDesc.Quality		= 0;
+	dsvDesc.Layout					= D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	dsvDesc.Flags					= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+	dsvDesc.Dimension				= D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 
 	//クリアバリュー
 	D3D12_CLEAR_VALUE clearValue;
@@ -781,6 +810,17 @@ void Wrapper::InitDescriptorHeapDSV()
 	_dsvVDesc.Flags = D3D12_DSV_FLAG_NONE;
 
 	_dev->CreateDepthStencilView(_dsvBuff, &_dsvVDesc, _dsvHeap->GetCPUDescriptorHandleForHeapStart());
+
+	//シェーダーリソースビュー作成
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format							= _dsvVDesc.Format;
+	srvDesc.ViewDimension					= D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels				= 1;
+	srvDesc.Shader4ComponentMapping			= D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	auto HeapDescSrvH = _depthSrvHeap->GetCPUDescriptorHandleForHeapStart();
+
+	_dev->CreateShaderResourceView(_dsvBuff, &srvDesc, HeapDescSrvH);
+	HeapDescSrvH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 }
 
 void Wrapper::DrawLightView()
@@ -1319,14 +1359,26 @@ void Wrapper::Pera2Update()
 	_cmdList->SetGraphicsRootDescriptorTable(0, srv);
 	srv.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * 2;
 
-	_cmdList->SetDescriptorHeaps(1, &_shadow->GetSrvHeap());
-	_cmdList->SetGraphicsRootDescriptorTable(1, _shadow->GetSrvHeap()->GetGPUDescriptorHandleForHeapStart());
+	//デプス
+	_cmdList->SetDescriptorHeaps(1, &_depthSrvHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(1, _depthSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
+	//ブルーム
 	_cmdList->SetDescriptorHeaps(1, &_srv2ndDescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(2, _srv2ndDescHeap->GetGPUDescriptorHandleForHeapStart());
 
+	//モデルのテクスチャカラー
 	_cmdList->SetDescriptorHeaps(1, &_srv1stDescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(3, srv);
+	srv.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	//アウトライン
+	_cmdList->SetDescriptorHeaps(1, &_srv1stDescHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(4, srv);
+
+	//ノイズ画像
+	_cmdList->SetDescriptorHeaps(1, &_texsrvHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(5, _texsrvHeap->GetGPUDescriptorHandleForHeapStart());
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 

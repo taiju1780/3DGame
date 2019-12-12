@@ -8,6 +8,10 @@ Texture2D<float4> bloom : register(t2); //ブルームかけたいテクスチャ
 
 Texture2D<float4> texcol : register(t3); //モデルのテクスチャカラーのみ
 
+Texture2D<float4> outline : register(t4); //アウトライン
+
+Texture2D<float4> mask : register(t5); //マスク
+
 SamplerState smp : register(s0);
 
 struct Output
@@ -41,9 +45,6 @@ float4 GetBokehColor(Texture2D<float4> tx, SamplerState s, float2 uv)
 //ピクセルシェーダ
 float4 ps(Output input) : SV_Target
 {
-
-    float d = pow(depth.Sample(smp, input.uv), 100);
-    
     //テクスチャ情報
     float4 ret = tex.Sample(smp, input.uv);
 
@@ -73,52 +74,29 @@ float4 ps(Output input) : SV_Target
     //ret += tex.Sample(smp, input.uv + float2(0, dy)) * 1;
     //ret += tex.Sample(smp, input.uv + float2(dx, dy)) * 2;
     //return float4(ret.rgb, 0.25f);
-
-    //線画
-    //四画素分一気にやる
-
-    //隣り合う画素との差分を調べる
-    ret = ret * 4
-        - tex.Sample(smp, input.uv * 5 + float2(-dx, 0))
-        - tex.Sample(smp, input.uv * 5 + float2(dx, 0))
-        - tex.Sample(smp, input.uv * 5 + float2(0, dy))
-        - tex.Sample(smp, input.uv * 5 + float2(0, -dy));
-
-        //線を黒周りを白にしたいので反転させる
-    float brightnass = dot(b.rgb, 1 - ret.rgb);
-
-        //線を強調
-    brightnass = pow(brightnass, 10);
     
     if (input.uv.x < 0.2f && input.uv.y < 0.2f)
-    {
-        float4 ret = tex.Sample(smp, input.uv * 5);
-        ret = ret * 4
-        - tex.Sample(smp, input.uv * 5 + float2(-dx, 0))
-        - tex.Sample(smp, input.uv * 5 + float2(dx, 0))
-        - tex.Sample(smp, input.uv * 5 + float2(0, dy))
-        - tex.Sample(smp, input.uv * 5 + float2(0, -dy));
-
-        //線を黒周りを白にしたいので反転させる
-        float brightnass = dot(b.rgb, 1 - ret.rgb);
-
-        //線を強調
-        brightnass = pow(brightnass, 10);
-
-        return float4(brightnass, brightnass, brightnass, 1);
-    }
-    
-    else if (input.uv.x < 0.2f && input.uv.y < 0.4f)
     {
         float _depth = depth.Sample(smp, input.uv * 5);
         _depth = 1.0f - pow(_depth, 30);
         return float4(_depth, _depth, _depth, 1);
     }
     
+    else if (input.uv.x < 0.2f && input.uv.y < 0.4f)
+    {
+        
+        return float4(texcol.Sample(smp, input.uv * 5).rgb, 1);
+    }
+    
     else if (input.uv.x < 0.2f && input.uv.y < 0.6f)
     {
-        return float4(texcol.Sample(smp, input.uv * 5).rgb, 1);
-    } 
+        return float4(outline.Sample(smp, input.uv * 5).rgb, 1);
+    }
+    
+    else if (input.uv.x < 0.2f && input.uv.y < 0.8f)
+    {
+        
+    }
 
     ////ポスタリゼーション
 
@@ -126,13 +104,38 @@ float4 ps(Output input) : SV_Target
     //return float4(post, 1);
     ////↑↓どちらでも可
     //return float4(trunc(post * 4) / 4.0f, 1);
+    
+    //アウトライン出力
+   
+    float edge = 2;
+    //隣り合う画素との差分を調べる
+    
+    float4 outret = depth.Sample(smp, input.uv);
+    
+    outret = outret * 4
+        - depth.Sample(smp, input.uv + float2(-dx * edge, 0))
+        - depth.Sample(smp, input.uv + float2(dx * edge, 0))
+        - depth.Sample(smp, input.uv + float2(0, dy * edge))
+        - depth.Sample(smp, input.uv + float2(0, -dy * edge));
 
+    outret.rgb -= mask.Sample(smp, input.uv).rgb;
+    //return mask.Sample(smp, input.uv);;
+    return float4((1.0f - outret.rgb), 1.0f);
+
+    //線を黒周りを白にしたいので反転させる
+    float brightnass = dot(float3(0.3,0.3,0.4).rgb, 1 - outret.rgb);
+    //線を強調
+    brightnass = pow(brightnass, 5);
+    
+    return float4(brightnass, brightnass, brightnass, 1);
+
+    //ブルームずらした結果
     float4 shrinkCol = GetBokehColor(bloom, smp, input.uv * float2(1, 0.5)) +
                         GetBokehColor(bloom, smp, input.uv * float2(0.5, 0.25) + float2(0, 0.5)) +
                         GetBokehColor(bloom, smp, input.uv * float2(0.25, 0.125) + float2(0, 0.75)) +
                         GetBokehColor(bloom, smp, input.uv * float2(0.125, 0.0625) + float2(0, 0.875));
-    
-    return float4(shrinkCol.rgb + tex.Sample(smp, input.uv).rgb, tex.Sample(smp, input.uv).a);
+    return float4( /*shrinkCol.rgb +*/tex.Sample(smp, input.uv).rgb * brightnass * mask.Sample(smp, input.uv).rgb,
+    tex.Sample(smp, input.uv).a);
  
     //通常
     return ret;
