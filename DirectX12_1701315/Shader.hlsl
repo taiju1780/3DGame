@@ -151,10 +151,10 @@ POut ps(Out o)
     po.hbr = float4(max(po.col.rgb - 0.8f, 0), 1);
     
     //テクスチャカラーのみ
-    po.texcolor = tex.Sample(smp,o.uv) * diffuse;
+    po.texcolor = tex.Sample(smp,o.uv);
     
     //アウトライン
-    po.outline = tex.Sample(smp, o.uv);
+    po.outline = float4(1.0f - tex.Sample(smp, o.uv).rgb, 1);
     
     return po;
 }

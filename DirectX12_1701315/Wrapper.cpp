@@ -192,7 +192,7 @@ void Wrapper::InitPipeline()
 	gpsDesc.InputLayout.NumElements = _countof(Peralayouts);
 
 	//深度ステンシル
-	gpsDesc.DepthStencilState.DepthEnable = false;
+	gpsDesc.DepthStencilState.DepthEnable		= false;
 
 	//シェーダ系
 	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(peravertexShader);
@@ -347,6 +347,230 @@ void Wrapper::InitTexture()
 
 	auto HeapDescsrvH = _texsrvHeap->GetCPUDescriptorHandleForHeapStart();
 	_dev->CreateShaderResourceView(_texbuff, &srvDesc, HeapDescsrvH);
+}
+
+void Wrapper::InitNoiseTexture()
+{
+	Application& app = Application::GetInstance();
+
+	//画像読み込み
+	TexMetadata metadata;
+	ScratchImage img;
+	auto result = LoadFromWICFile(L"img/noise.png", WIC_FLAGS_NONE, &metadata, img);
+
+	D3D12_HEAP_PROPERTIES heapprop = {};
+	heapprop.Type					= D3D12_HEAP_TYPE_CUSTOM;
+	heapprop.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	heapprop.MemoryPoolPreference	= D3D12_MEMORY_POOL_L0;
+	heapprop.CreationNodeMask		= 1;
+	heapprop.VisibleNodeMask		= 1;
+
+	D3D12_RESOURCE_DESC texDesc = {};
+	texDesc.Alignment			= 0;
+	texDesc.Width				= metadata.width;
+	texDesc.Height				= metadata.height;
+	texDesc.DepthOrArraySize	= 1;
+	texDesc.MipLevels			= 1;
+	texDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
+	texDesc.SampleDesc.Count	= 1;
+	texDesc.SampleDesc.Quality	= 0;
+	texDesc.Layout				= D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	texDesc.Flags				= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	texDesc.Dimension			= D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+	float clearColor[] = { 0.5,0.5,0.5,1.f };
+
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.DepthStencil.Depth = 1.0f;
+	clearValue.DepthStencil.Stencil = 0;
+	clearValue.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	std::copy(std::begin(clearColor), std::end(clearColor), clearValue.Color);
+
+	result = _dev->CreateCommittedResource(
+		&heapprop,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&_noisetexbuff));
+
+	result = _cmdAllocator->Reset();
+	result = _cmdList->Reset(_cmdAllocator, nullptr);
+
+	//バリアセット
+	_cmdList->ResourceBarrier(
+		1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(
+			_noisetexbuff,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+
+	D3D12_RESOURCE_DESC resdesk;
+	resdesk = _texbuff->GetDesc();
+	D3D12_BOX box = {};
+	box.left = 0;
+	box.right = (resdesk.Width);
+	box.top = 0;
+	box.bottom = (resdesk.Height);
+	box.front = 0;
+	box.back = 1;
+
+	result = _noisetexbuff->WriteToSubresource(0, &box, img.GetPixels(), metadata.width * 4/*RGBA(4)*/, img.GetPixelsSize());
+
+	//バリア閉じ
+	_cmdList->ResourceBarrier(
+		1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(
+			_noisetexbuff,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_COPY_DEST));
+
+	_cmdList->Close();
+
+	ExecuteCmd();
+	WaitExcute();
+
+	//デスクリプターヒープ作成
+	D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
+	HeapDesc.Flags				= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	HeapDesc.NodeMask			= 0;
+	HeapDesc.NumDescriptors		= 1;
+	HeapDesc.Type				= D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+
+	//レンダーターゲットデスクリプターヒープ作成
+	result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_noisetexrtvHeap));
+
+	//シェーダリソースビューデスクリプターヒープ作成
+	HeapDesc.Flags	= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	HeapDesc.Type	= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_noisetexsrvHeap));
+
+	//レンダーターゲットビュー
+	auto HeapDescrtvH = _noisetexrtvHeap->GetCPUDescriptorHandleForHeapStart();
+	_dev->CreateRenderTargetView(_noisetexbuff, nullptr, HeapDescrtvH);
+
+	//シェーダーリソースビュー
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format					= DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.ViewDimension			= D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels		= 1;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	auto HeapDescsrvH = _noisetexsrvHeap->GetCPUDescriptorHandleForHeapStart();
+	_dev->CreateShaderResourceView(_noisetexbuff, &srvDesc, HeapDescsrvH);
+}
+
+void Wrapper::InitNormalTexture()
+{
+	Application& app = Application::GetInstance();
+
+	//画像読み込み
+	TexMetadata metadata;
+	ScratchImage img;
+	auto result = LoadFromWICFile(L"img/distortion.png", WIC_FLAGS_NONE, &metadata, img);
+
+	D3D12_HEAP_PROPERTIES heapprop = {};
+	heapprop.Type					= D3D12_HEAP_TYPE_CUSTOM;
+	heapprop.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	heapprop.MemoryPoolPreference	= D3D12_MEMORY_POOL_L0;
+	heapprop.CreationNodeMask		= 1;
+	heapprop.VisibleNodeMask		= 1;
+
+	D3D12_RESOURCE_DESC texDesc = {};
+	texDesc.Alignment			= 0;
+	texDesc.Width				= metadata.width;
+	texDesc.Height				= metadata.height;
+	texDesc.DepthOrArraySize	= 1;
+	texDesc.MipLevels			= 1;
+	texDesc.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
+	texDesc.SampleDesc.Count	= 1;
+	texDesc.SampleDesc.Quality	= 0;
+	texDesc.Layout				= D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	texDesc.Flags				= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	texDesc.Dimension			= D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+	float clearColor[] = { 0.5,0.5,0.5,1.f };
+
+	D3D12_CLEAR_VALUE clearValue = {};
+	clearValue.DepthStencil.Depth	= 1.0f;
+	clearValue.DepthStencil.Stencil = 0;
+	clearValue.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
+	std::copy(std::begin(clearColor), std::end(clearColor), clearValue.Color);
+
+	result = _dev->CreateCommittedResource(
+		&heapprop,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&_normaltexbuff));
+
+	result = _cmdAllocator->Reset();
+	result = _cmdList->Reset(_cmdAllocator, nullptr);
+
+	//バリアセット
+	_cmdList->ResourceBarrier(
+		1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(
+			_normaltexbuff,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+
+
+	D3D12_RESOURCE_DESC resdesk;
+	resdesk = _texbuff->GetDesc();
+	D3D12_BOX box = {};
+	box.left = 0;
+	box.right = (resdesk.Width);
+	box.top = 0;
+	box.bottom = (resdesk.Height);
+	box.front = 0;
+	box.back = 1;
+
+	result = _normaltexbuff->WriteToSubresource(0, &box, img.GetPixels(), metadata.width * 4/*RGBA(4)*/, img.GetPixelsSize());
+
+	//バリア閉じ
+	_cmdList->ResourceBarrier(
+		1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(
+			_normaltexbuff,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+			D3D12_RESOURCE_STATE_COPY_DEST));
+
+	_cmdList->Close();
+
+	ExecuteCmd();
+	WaitExcute();
+
+	//デスクリプターヒープ作成
+	D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
+	HeapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	HeapDesc.NodeMask		= 0;
+	HeapDesc.NumDescriptors = 1;
+	HeapDesc.Type			= D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+
+	//レンダーターゲットデスクリプターヒープ作成
+	result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_normaltexrtvHeap));
+
+	//シェーダリソースビューデスクリプターヒープ作成
+	HeapDesc.Flags	= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	HeapDesc.Type	= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_normaltexsrvHeap));
+
+	//レンダーターゲットビュー
+	auto HeapDescrtvH = _normaltexrtvHeap->GetCPUDescriptorHandleForHeapStart();
+	_dev->CreateRenderTargetView(_normaltexbuff, nullptr, HeapDescrtvH);
+
+	//シェーダーリソースビュー
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format					= DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.ViewDimension			= D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels		= 1;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	auto HeapDescsrvH = _normaltexsrvHeap->GetCPUDescriptorHandleForHeapStart();
+	_dev->CreateShaderResourceView(_normaltexbuff, &srvDesc, HeapDescsrvH);
 }
 
 void Wrapper::InitPath1stRTVSRV()
@@ -658,8 +882,8 @@ void Wrapper::InitPath2ndRootSignature()
 	ID3DBlob* rootSignatureBlob = nullptr;	//ルートシグネチャをつくるための材料 
 	ID3DBlob* error = nullptr;	//エラー出た時の対処
 
-	D3D12_DESCRIPTOR_RANGE descTblrange[6] = {};
-	D3D12_ROOT_PARAMETER rootparam[6] = {};
+	D3D12_DESCRIPTOR_RANGE descTblrange[8] = {};
+	D3D12_ROOT_PARAMETER rootparam[8] = {};
 
 	//t0
 	descTblrange[0].NumDescriptors						= 1;
@@ -691,11 +915,23 @@ void Wrapper::InitPath2ndRootSignature()
 	descTblrange[4].BaseShaderRegister					= 4;
 	descTblrange[4].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	
-	//t5(ノイズテクスチャ)
+	//t5(マスクテクスチャ)
 	descTblrange[5].NumDescriptors						= 1;
 	descTblrange[5].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descTblrange[5].BaseShaderRegister					= 5;
 	descTblrange[5].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	
+	//t6(ノイズテクスチャ)
+	descTblrange[6].NumDescriptors						= 1;
+	descTblrange[6].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblrange[6].BaseShaderRegister					= 6;
+	descTblrange[6].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	
+	//t7(歪み用ノーマルマップ)
+	descTblrange[7].NumDescriptors						= 1;
+	descTblrange[7].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descTblrange[7].BaseShaderRegister					= 7;
+	descTblrange[7].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	//デスクリプターテーブル設定
 	rootparam[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -728,10 +964,20 @@ void Wrapper::InitPath2ndRootSignature()
 	rootparam[5].DescriptorTable.NumDescriptorRanges	= 1;
 	rootparam[5].DescriptorTable.pDescriptorRanges		= &descTblrange[5];
 
+	rootparam[6].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[6].ShaderVisibility						= D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[6].DescriptorTable.NumDescriptorRanges	= 1;
+	rootparam[6].DescriptorTable.pDescriptorRanges		= &descTblrange[6];
+	
+	rootparam[7].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[7].ShaderVisibility						= D3D12_SHADER_VISIBILITY_PIXEL;
+	rootparam[7].DescriptorTable.NumDescriptorRanges	= 1;
+	rootparam[7].DescriptorTable.pDescriptorRanges		= &descTblrange[7];
+
 	D3D12_ROOT_SIGNATURE_DESC rsd = {};
 	rsd.Flags					= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsd.pParameters				= rootparam;
-	rsd.NumParameters			= 6;
+	rsd.NumParameters			= 8;
 	rsd.pStaticSamplers			= &samplerDesc;
 	rsd.NumStaticSamplers		= 1;
 
@@ -754,10 +1000,10 @@ void Wrapper::InitDescriptorHeapDSV()
 
 	//デスクリプターヒープ
 	D3D12_DESCRIPTOR_HEAP_DESC _dsvDesc = {};
-	_dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	_dsvDesc.NodeMask = 0;
-	_dsvDesc.NumDescriptors = 1;
-	_dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	_dsvDesc.Flags						= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	_dsvDesc.NodeMask					= 0;
+	_dsvDesc.NumDescriptors				= 1;
+	_dsvDesc.Type						= D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
 
 	auto result = _dev->CreateDescriptorHeap(&_dsvDesc, IID_PPV_ARGS(&_dsvHeap));
 
@@ -790,9 +1036,9 @@ void Wrapper::InitDescriptorHeapDSV()
 
 	//クリアバリュー
 	D3D12_CLEAR_VALUE clearValue;
-	clearValue.DepthStencil.Depth = 1.0f;
+	clearValue.DepthStencil.Depth	= 1.0f;
 	clearValue.DepthStencil.Stencil = 0;
-	clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+	clearValue.Format				= DXGI_FORMAT_D32_FLOAT;
 
 	result = _dev->CreateCommittedResource(
 		&heappropDsv,
@@ -804,23 +1050,21 @@ void Wrapper::InitDescriptorHeapDSV()
 
 	//深度バッファービュー
 	D3D12_DEPTH_STENCIL_VIEW_DESC _dsvVDesc = {};
-	_dsvVDesc.Format = DXGI_FORMAT_D32_FLOAT;
-	_dsvVDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-	_dsvVDesc.Texture2D.MipSlice = 0;
-	_dsvVDesc.Flags = D3D12_DSV_FLAG_NONE;
+	_dsvVDesc.Format						= DXGI_FORMAT_D32_FLOAT;
+	_dsvVDesc.ViewDimension					= D3D12_DSV_DIMENSION_TEXTURE2D;
+	_dsvVDesc.Texture2D.MipSlice			= 0;
+	_dsvVDesc.Flags							= D3D12_DSV_FLAG_NONE;
 
 	_dev->CreateDepthStencilView(_dsvBuff, &_dsvVDesc, _dsvHeap->GetCPUDescriptorHandleForHeapStart());
 
 	//シェーダーリソースビュー作成
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format							= _dsvVDesc.Format;
+	srvDesc.Format							= DXGI_FORMAT_R32_FLOAT;
 	srvDesc.ViewDimension					= D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvDesc.Texture2D.MipLevels				= 1;
 	srvDesc.Shader4ComponentMapping			= D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	auto HeapDescSrvH = _depthSrvHeap->GetCPUDescriptorHandleForHeapStart();
 
-	_dev->CreateShaderResourceView(_dsvBuff, &srvDesc, HeapDescSrvH);
-	HeapDescSrvH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	_dev->CreateShaderResourceView(_dsvBuff, &srvDesc, _depthSrvHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 void Wrapper::DrawLightView()
@@ -1101,6 +1345,10 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 
 	InitTexture();
 
+	InitNoiseTexture();
+
+	InitNormalTexture();
+
 	InitPath1stRootSignature();
 
 	InitPath2ndRootSignature();
@@ -1376,9 +1624,17 @@ void Wrapper::Pera2Update()
 	_cmdList->SetDescriptorHeaps(1, &_srv1stDescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(4, srv);
 
-	//ノイズ画像
+	//マスク画像
 	_cmdList->SetDescriptorHeaps(1, &_texsrvHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(5, _texsrvHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//ノイズ画像
+	_cmdList->SetDescriptorHeaps(1, &_noisetexsrvHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(6, _noisetexsrvHeap->GetGPUDescriptorHandleForHeapStart());
+	
+	//歪み用ノーマル画像
+	_cmdList->SetDescriptorHeaps(1, &_normaltexsrvHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(7, _normaltexsrvHeap->GetGPUDescriptorHandleForHeapStart());
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 

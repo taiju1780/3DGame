@@ -72,6 +72,20 @@ private:
 	
 	ID3D12DescriptorHeap* _texrtvHeap = nullptr;
 	ID3D12DescriptorHeap* _texsrvHeap = nullptr;
+	
+	//画像関係(ノイズ用テクスチャ)
+	void InitNoiseTexture();
+	ID3D12Resource* _noisetexbuff;
+	
+	ID3D12DescriptorHeap* _noisetexrtvHeap = nullptr;
+	ID3D12DescriptorHeap* _noisetexsrvHeap = nullptr;
+	
+	//画像関係(歪み用ノーマルマップ)
+	void InitNormalTexture();
+	ID3D12Resource* _normaltexbuff;
+	
+	ID3D12DescriptorHeap* _normaltexrtvHeap = nullptr;
+	ID3D12DescriptorHeap* _normaltexsrvHeap = nullptr;
 
 	//深度
 	void InitDescriptorHeapDSV();
