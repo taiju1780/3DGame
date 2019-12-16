@@ -129,17 +129,19 @@ float4 ps(Output input) : SV_Target
     distuv = distuv * 2.0f - 1.0f;
     
     //アウトライン出力
-    float edge = 5;
+    float edge = 1.1;
     
     //隣り合う画素との差分を調べる
     float4 outret = outline.Sample(smp, input.uv);
     
+    //アウトライン用に反転したもの
     outret = outret * 4
         - outline.Sample(smp, input.uv + float2(-dx * edge, 0))
         - outline.Sample(smp, input.uv + float2(dx * edge, 0))
         - outline.Sample(smp, input.uv + float2(0, dy * edge))
         - outline.Sample(smp, input.uv + float2(0, -dy * edge));
     
+    //テクスチャカラー
     float4 texret = texcol.Sample(smp, input.uv);
     texret = texret * 4
         - texcol.Sample(smp, input.uv + float2(-dx * edge, 0))
@@ -147,16 +149,16 @@ float4 ps(Output input) : SV_Target
         - texcol.Sample(smp, input.uv + float2(0, dy * edge))
         - texcol.Sample(smp, input.uv + float2(0, -dy * edge));
     
-    //outret = pow((1.0f - outret), 5);
+    outret -= mask.Sample(smp, input.uv);
+    outret -= noise.Sample(smp, input.uv);
     
-    return float4((1.0f - outret.rgb) * (1.0f - texret.rgb), 1.0f);
+    outret = pow((1.0f - outret), 1);
+    texret = pow((1.0f - texret), 1);
     
-    outret -= mask.Sample(smp, input.uv + distuv * 0.1f);
-    outret -= noise.Sample(smp, input.uv + distuv * 0.1f);
-    
-   //return float4(outret.rgb, 1.0f);
-    
-    return float4(outret.rgb * texcol.Sample(smp, input.uv).rgb, 1.0f);
+    //アウトラインをしっかりと出すため
+    //return float4(outret.rgb * texret.rgb, 1.0f);
+
+    return float4(outret.rgb * texret.rgb * texcol.Sample(smp, input.uv).rgb, 1.0f);
     
     //return float4((1.0f - outret.rgb), 1.0f);
     //線を黒周りを白にしたいので反転させる

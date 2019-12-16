@@ -147,6 +147,25 @@ private:
 	void InitVertices2Pera();
 	void InitPath2ndRootSignature();
 
+	//ペラ3ポリ
+	D3D12_VERTEX_BUFFER_VIEW _3rdvbView = {};
+	ID3D12Resource* _pera3Buff;
+
+	//2パス目に使用するレンダリングバッファ
+	std::vector<ID3D12Resource*> _3rdPathBuffers;
+	ID3D12DescriptorHeap* _rtv3rdDescHeap = nullptr;		//RTV(レンダーターゲット)デスクリプタヒープ
+	ID3D12DescriptorHeap *_srv3rdDescHeap = nullptr;		//その他(テクスチャ、定数)デスクリプタヒープ
+
+	ID3DBlob* pera3vertexShader = nullptr;
+	ID3DBlob* pera3pixelShader = nullptr;
+
+	ID3D12PipelineState* _pera3pipeline = nullptr;
+	ID3D12RootSignature* _pera3rootsigunature = nullptr;
+
+	void InitPath3rdRTVSRV();
+	void InitVertices3Pera();
+	void InitPath3rdRootSignature();
+
 	//影
 	void DrawLightView();
 
@@ -176,5 +195,6 @@ public:
 	void Update();
 	void PeraUpdate();
 	void Pera2Update();
+	void Pera3Update();
 };
 
