@@ -212,9 +212,11 @@ void Wrapper::InitPipeline()
 	/////////////////////////////////////////////////////////////////
 
 	//レンダーターゲット
-	gpsDesc.NumRenderTargets = 2;
+	gpsDesc.NumRenderTargets =4;
 	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	gpsDesc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.RTVFormats[2] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.RTVFormats[3] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	//頂点レイアウト
 	D3D12_INPUT_ELEMENT_DESC Pera2layouts[] = {
@@ -250,13 +252,15 @@ void Wrapper::InitPipeline()
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pera2pixelShader);
 
 	result = _dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&_pera2pipeline));//レンダーターゲット
-	gpsDesc.NumRenderTargets = 2;
-	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-	gpsDesc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	
 
 	/////////////////////////////////////////////////////////////////
 	//3rdPath
 	/////////////////////////////////////////////////////////////////
+
+	gpsDesc.NumRenderTargets = 2;
+	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+	gpsDesc.RTVFormats[1] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
 	//頂点レイアウト
 	D3D12_INPUT_ELEMENT_DESC Pera3layouts[] = {
@@ -1128,6 +1132,23 @@ void Wrapper::InitPath3rdRTVSRV()
 {
 	Application& app = Application::GetInstance();
 
+	//デスクリプタヒープ作成
+	D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
+	HeapDesc.Flags						= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	HeapDesc.NodeMask					= 0;
+	HeapDesc.NumDescriptors				= 4;
+	HeapDesc.Type						= D3D12_DESCRIPTOR_HEAP_TYPE_RTV;	//ディスクリプタの型(レンダーターゲットビュー)
+
+	//rtvデスクリプタヒープ作成
+	auto result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_rtv3rdDescHeap));
+
+	//srvデスクリプタヒープ作成
+	HeapDesc.Flags	= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	HeapDesc.Type	= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_srv3rdDescHeap));
+
+	_3rdPathBuffers.resize(4);
+
 	//ヒーププロパティ
 	D3D12_HEAP_PROPERTIES heapprop = {};
 	heapprop.CPUPageProperty		= D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
@@ -1148,9 +1169,7 @@ void Wrapper::InitPath3rdRTVSRV()
 	texDesc.Layout				= D3D12_TEXTURE_LAYOUT_UNKNOWN;				//決定できないのでUNKNOWN
 	texDesc.MipLevels			= 0;										//ミップ使ってないので0
 	texDesc.SampleDesc.Count	= 1;
-	texDesc.SampleDesc.Quality		= 0;
-
-	_3rdPathBuffers.resize(2);
+	texDesc.SampleDesc.Quality	= 0;
 
 	float clearColor[] = { 0.5, 0.5, 0.5,1.f };
 
@@ -1159,6 +1178,9 @@ void Wrapper::InitPath3rdRTVSRV()
 	clearValue.DepthStencil.Stencil = 0;
 	clearValue.Format				= DXGI_FORMAT_R8G8B8A8_UNORM;
 	std::copy(std::begin(clearColor), std::end(clearColor), clearValue.Color);
+
+	D3D12_CPU_DESCRIPTOR_HANDLE HeapDescrtvH = _rtv3rdDescHeap->GetCPUDescriptorHandleForHeapStart();
+	D3D12_CPU_DESCRIPTOR_HANDLE HeapDescSrvH = _srv3rdDescHeap->GetCPUDescriptorHandleForHeapStart();
 
 	for (int i = 0; i < _3rdPathBuffers.size(); ++i) {
 
@@ -1171,37 +1193,19 @@ void Wrapper::InitPath3rdRTVSRV()
 			&clearValue,
 			IID_PPV_ARGS(&_3rdPathBuffers[i]));
 
-		//デスクリプタヒープ作成
-		D3D12_DESCRIPTOR_HEAP_DESC HeapDesc = {};
-		HeapDesc.Flags			= D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-		HeapDesc.NodeMask		= 0;
-		HeapDesc.NumDescriptors = 1;
-		HeapDesc.Type			= D3D12_DESCRIPTOR_HEAP_TYPE_RTV;	//ディスクリプタの型(レンダーターゲットビュー)
-
-		//rtvデスクリプタヒープ作成
-		result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_rtv3rdDescHeap));
-
-		//srvデスクリプタヒープ作成
-		HeapDesc.Flags	= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-		HeapDesc.Type	= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-		result = _dev->CreateDescriptorHeap(&HeapDesc, IID_PPV_ARGS(&_srv3rdDescHeap));
-
 		//レンダーターゲットビュー作成
-		D3D12_CPU_DESCRIPTOR_HANDLE HeapDescrtvH = _rtv2ndDescHeap->GetCPUDescriptorHandleForHeapStart();
 		_dev->CreateRenderTargetView(_3rdPathBuffers[i], nullptr, HeapDescrtvH);
+		HeapDescrtvH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
 		//シェーダーリソースビュー作成
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-		srvDesc.Format							= DXGI_FORMAT_R8G8B8A8_UNORM;
-		srvDesc.ViewDimension					= D3D12_SRV_DIMENSION_TEXTURE2D;
-		srvDesc.Texture2D.MipLevels				= 1;
-		srvDesc.Texture2D.MostDetailedMip		= 0;
-		srvDesc.Texture2D.PlaneSlice			= 0;
-		srvDesc.Texture2D.ResourceMinLODClamp	= 0.0F;
-		srvDesc.Shader4ComponentMapping			= D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Format					= texDesc.Format;
+		srvDesc.ViewDimension			= D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MipLevels		= 1;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-		D3D12_CPU_DESCRIPTOR_HANDLE HeapDescSrvH = _srv3rdDescHeap->GetCPUDescriptorHandleForHeapStart();
 		_dev->CreateShaderResourceView(_3rdPathBuffers[i], &srvDesc, HeapDescSrvH);
+		HeapDescSrvH.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	}
 }
 
@@ -1441,10 +1445,10 @@ void Wrapper::InitEffekseer()
 void Wrapper::InitIMGUI(HWND hwnd)
 {
 	D3D12_DESCRIPTOR_HEAP_DESC heapdesc = {};
-	heapdesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	heapdesc.NodeMask = 0;
-	heapdesc.NumDescriptors = 1;
-	heapdesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	heapdesc.Flags						= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	heapdesc.NodeMask					= 0;
+	heapdesc.NumDescriptors				= 1;
+	heapdesc.Type						= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	auto result = _dev->CreateDescriptorHeap(&heapdesc, IID_PPV_ARGS(&imguiHeap));
 
@@ -1720,6 +1724,8 @@ void Wrapper::Update()
 
 	Pera2Update();
 
+	Pera3Update();
+
 	_swapchain->Present(0, 0);
 }
 
@@ -1839,19 +1845,18 @@ void Wrapper::Pera2Update()
 	_cmdList->RSSetViewports(1, &_viewport);
 	_cmdList->RSSetScissorRects(1, &_scissorRect);
 
-	//レンダーターゲット指定
-	auto rtv = _rtvDescHeap->GetCPUDescriptorHandleForHeapStart();
 	auto srv = _srv1stDescHeap->GetGPUDescriptorHandleForHeapStart();
 
-	//レンダーターゲット設定
-	_cmdList->OMSetRenderTargets(_3rdPathBuffers.size(), &rtv, true, nullptr);
-
+	//レンダーターゲット指定
 	auto heapStart = _rtv3rdDescHeap->GetCPUDescriptorHandleForHeapStart();
 	auto rtvHeapSize = _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
+	//レンダーターゲット設定
+	_cmdList->OMSetRenderTargets(_3rdPathBuffers.size(), &heapStart, true, nullptr);
+
 	for (int i = 0; i < _3rdPathBuffers.size(); ++i) {
 		//レンダーターゲットのクリア
-		_cmdList->ClearRenderTargetView(rtv, clearColor, 0, nullptr); 
+		_cmdList->ClearRenderTargetView(heapStart, clearColor, 0, nullptr); 
 		heapStart.ptr += rtvHeapSize;
 	}
 
@@ -1897,12 +1902,14 @@ void Wrapper::Pera2Update()
 	_cmdList->DrawInstanced(4, 1, 0, 0);
 
 	//バリアー
-	_cmdList->ResourceBarrier(
+	for (int i = 0; i < _3rdPathBuffers.size(); ++i) {
+		_cmdList->ResourceBarrier(
 		1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(
-		_3rdPathBuffers[0],
+		_3rdPathBuffers[i],
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_PRESENT));
+	}
 
 	_cmdList->Close();		//コマンドのクローズ
 
@@ -1913,7 +1920,7 @@ void Wrapper::Pera2Update()
 void Wrapper::Pera3Update()
 {
 	auto result = _cmdAllocator->Reset();							//アロケーターのリセット
-	result = _cmdList->Reset(_cmdAllocator, _pera2pipeline);		//コマンドリストのリセット
+	result = _cmdList->Reset(_cmdAllocator, _pera3pipeline);		//コマンドリストのリセット
 
 	//現在のバックバッファのインデックス
 	auto bbIdx = _swapchain->GetCurrentBackBufferIndex();
@@ -1926,7 +1933,7 @@ void Wrapper::Pera3Update()
 			D3D12_RESOURCE_STATE_RENDER_TARGET));
 
 	//マルチパス用のルートシグネチャー
-	_cmdList->SetGraphicsRootSignature(_pera2rootsigunature);
+	_cmdList->SetGraphicsRootSignature(_pera3rootsigunature);
 
 	//ビューポート、シザー
 	_viewport.Width = _3rdPathBuffers[0]->GetDesc().Width;
@@ -1951,17 +1958,19 @@ void Wrapper::Pera3Update()
 	_cmdList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 
 	//ペラポリ
-	_cmdList->SetDescriptorHeaps(1, &_srv2ndDescHeap);
+	_cmdList->SetDescriptorHeaps(1, &_srv3rdDescHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(0, srv);
+	srv.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	//outline
 	_cmdList->SetDescriptorHeaps(1, &_srv3rdDescHeap);
-	_cmdList->SetGraphicsRootDescriptorTable(1, _srv3rdDescHeap->GetGPUDescriptorHandleForHeapStart());
+	_cmdList->SetGraphicsRootDescriptorTable(1, srv);
 	srv.ptr += _dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	//歪み適用後テクスチャ
 	_cmdList->SetDescriptorHeaps(1, &_srv3rdDescHeap);
-	_cmdList->SetGraphicsRootDescriptorTable(2, _srv3rdDescHeap->GetGPUDescriptorHandleForHeapStart());
+	_cmdList->SetGraphicsRootDescriptorTable(2, srv);
+
 
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 

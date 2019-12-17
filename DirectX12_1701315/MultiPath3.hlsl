@@ -2,9 +2,9 @@
 //テクスチャデータ
 Texture2D<float4> tex : register(t0); //通常テクスチャ
 
-Texture2D<float> depth : register(t1); //深度
+Texture2D<float4> outline : register(t1); //アウトライン
 
-Texture2D<float4> bloom : register(t2); //ブルームかけたいテクスチャ
+Texture2D<float4> distortion : register(t2); //歪ませ後のテクスチャ
 
 SamplerState smp : register(s0);
 
@@ -37,7 +37,21 @@ float4 ps(Output input) : SV_Target
     float dx = 1.0f / w; //一ピクセル分
     float dy = 1.0f / h; //一ピクセル分
     
+    
+    float4 outret = outline.Sample(smp, input.uv);
+    float4 distret = distortion.Sample(smp, input.uv);
+    
+    if (input.uv.x < 0.2f && input.uv.y < 0.2f)
+    {
+        return outline.Sample(smp, input.uv * 5);
+    }
+ 
+    else if (input.uv.x < 0.2f && input.uv.y < 0.4f)
+    {
+        return distortion.Sample(smp, input.uv * 5);
+    }
+    
     //通常
-    return ret;
+    return float4((outret * distret).rgb, 1);
 }
 
