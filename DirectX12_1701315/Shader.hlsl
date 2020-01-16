@@ -154,7 +154,8 @@ POut ps(Out o)
     po.texcolor = tex.Sample(smp,o.uv) * diffuse;
     
     //アウトライン
-    po.outline = float4(1.0f - tex.Sample(smp, o.uv).rgb, 1);
+    //po.outline = float4(1.0f - tex.Sample(smp, o.uv).rgb, 1);
+    po.outline = float4(o.normal, 1);
     
     return po;
 }

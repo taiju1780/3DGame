@@ -1,8 +1,10 @@
 
 //テクスチャデータ
-Texture2D<float4> tex : register(t0); //通常テクスチャ
+Texture2D<float4> tex : register(t0); //高輝度
 
 Texture2D<float> depth : register(t1); //深度
+
+Texture2D<float4> depthoffield : register(t2); //被写界深度用
 
 SamplerState smp : register(s0);
 
@@ -21,9 +23,16 @@ Output vs(float4 pos : POSITION, float2 uv : TEXCOORD)
     return output;
 }
 
-//ピクセルシェーダ
-float4 ps(Output input):SV_Target
+struct POut
 {
+    float4 bloom : SV_Target0;
+    float4 depthoffiled : SV_Target1;
+};
+
+//ピクセルシェーダ
+POut ps(Output input)
+{
+    POut o;
 
     float d = pow(depth.Sample(smp, input.uv), 100);
     
@@ -44,7 +53,12 @@ float4 ps(Output input):SV_Target
     float dx = 1.0f / w; //一ピクセル分
     float dy = 1.0f / h; //一ピクセル分
 
-    //通常
-    return ret;
+    //高輝度
+    o.bloom = tex.Sample(smp, input.uv);
+    
+    //被写界深度用
+    o.depthoffiled = depthoffield.Sample(smp, input.uv);
+    
+    return o;
 }
 

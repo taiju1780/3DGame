@@ -38,7 +38,7 @@ void Camera::InitConstants(ID3D12Device* dev)
 	auto result = dev->CreateDescriptorHeap(&srvHeapDesc, IID_PPV_ARGS(&_rgstDescHeap));
 
 	//カメラ設定
-	eye = XMFLOAT3(0, 18, -50);//視点
+	eye = XMFLOAT3(0, 18, -100);//視点
 	target = XMFLOAT3(0, 10, 0);//注視点
 	up = XMFLOAT3(0, 1, 0);//上ベクトル
 
@@ -64,7 +64,7 @@ void Camera::InitConstants(ID3D12Device* dev)
 		XM_PIDIV2 / 3,
 		static_cast<float>(wsize.w) / static_cast<float>(wsize.h),
 		1.0f,
-		300);
+		500);
 
 	//ワールド行列
 	angle = 0.0f;

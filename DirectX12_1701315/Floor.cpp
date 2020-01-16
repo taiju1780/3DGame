@@ -26,7 +26,7 @@ Floor::~Floor()
 
 void Floor::InitVerticesFloor(ID3D12Device* _dev)
 {
-	auto edge = 200;
+	auto edge = 100;
 	VertexFloor floorvertices[] = {
 		XMFLOAT3(-edge,0,edge),XMFLOAT2(0,0),XMFLOAT3(0,1,0),		//è∞ñ  
 		XMFLOAT3(-edge, 0,-edge),XMFLOAT2(0, 1),XMFLOAT3(0,1,0),	//è∞ñ  

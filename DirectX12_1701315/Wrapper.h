@@ -20,6 +20,10 @@ struct VertexTex {
 	DirectX::XMFLOAT2 uv;
 };
 
+struct General {
+	int time = 0;
+};
+
 class Wrapper
 {
 private:
@@ -188,6 +192,12 @@ private:
 
 	float clearColor[3];
 	int InstanceNum;
+
+	//定数バッファ(変数用)
+	void InitConstantBuff();
+	General general;
+	ID3D12Resource *Generalbuff;
+	D3D12_VERTEX_BUFFER_VIEW _gview = {};
 
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
