@@ -1277,8 +1277,8 @@ void Wrapper::InitPath3rdRootSignature()
 	ID3DBlob* rootSignatureBlob = nullptr;	//ルートシグネチャをつくるための材料 
 	ID3DBlob* error = nullptr;	//エラー出た時の対処
 
-	D3D12_DESCRIPTOR_RANGE descTblrange[5] = {};
-	D3D12_ROOT_PARAMETER rootparam[5] = {};
+	D3D12_DESCRIPTOR_RANGE descTblrange[6] = {};
+	D3D12_ROOT_PARAMETER rootparam[6] = {};
 
 	//t0
 	descTblrange[0].NumDescriptors						= 1;
@@ -1310,6 +1310,13 @@ void Wrapper::InitPath3rdRootSignature()
 	descTblrange[4].BaseShaderRegister					= 4;
 	descTblrange[4].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	//定数バッファ
+	//時間
+	descTblrange[5].NumDescriptors						= 1;
+	descTblrange[5].BaseShaderRegister					= 0;
+	descTblrange[5].RangeType							= D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	descTblrange[5].OffsetInDescriptorsFromTableStart	= D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	//デスクリプターテーブル設定
 	rootparam[0].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootparam[0].ShaderVisibility						= D3D12_SHADER_VISIBILITY_PIXEL;
@@ -1336,10 +1343,15 @@ void Wrapper::InitPath3rdRootSignature()
 	rootparam[4].DescriptorTable.NumDescriptorRanges	= 1;
 	rootparam[4].DescriptorTable.pDescriptorRanges		= &descTblrange[4];
 
+	rootparam[5].ParameterType							= D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootparam[5].ShaderVisibility						= D3D12_SHADER_VISIBILITY_ALL;
+	rootparam[5].DescriptorTable.NumDescriptorRanges	= 1;
+	rootparam[5].DescriptorTable.pDescriptorRanges		= &descTblrange[5];
+
 	D3D12_ROOT_SIGNATURE_DESC rsd = {};
 	rsd.Flags						= D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsd.pParameters					= rootparam;
-	rsd.NumParameters				= 5;
+	rsd.NumParameters				= 6;
 	rsd.pStaticSamplers				= &samplerDesc;
 	rsd.NumStaticSamplers			= 1;
 
@@ -1501,31 +1513,38 @@ void Wrapper::InitIMGUI(HWND hwnd)
 
 void Wrapper::InitConstantBuff()
 {
-	D3D12_HEAP_PROPERTIES cbvHeapProp = {};
-	cbvHeapProp.CPUPageProperty			= D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	cbvHeapProp.MemoryPoolPreference	= D3D12_MEMORY_POOL_UNKNOWN;
-	cbvHeapProp.CreationNodeMask		= 1;
-	cbvHeapProp.VisibleNodeMask			= 1;
-	cbvHeapProp.Type					= D3D12_HEAP_TYPE_UPLOAD;
+	size_t size = sizeof(general);
+	size = (size + 0xff)&~0xff;
 
-	auto result = _dev->CreateCommittedResource(&cbvHeapProp,
+	//generalヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC generalHeapDesc = {};
+	generalHeapDesc.Flags						= D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	generalHeapDesc.NodeMask					= 0;
+	generalHeapDesc.NumDescriptors				= 1;
+	generalHeapDesc.Type						= D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
+	auto result = _dev->CreateDescriptorHeap(&generalHeapDesc, IID_PPV_ARGS(&generalHeap));
+
+	_dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
 		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(General)),
+		&CD3DX12_RESOURCE_DESC::Buffer(size),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
-		IID_PPV_ARGS(&Generalbuff));
+		IID_PPV_ARGS(&_Generalbuff)
+	);
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC generalViewDesc = {};
+	auto matH = generalHeap->GetCPUDescriptorHandleForHeapStart();
+
+	//定数バッファビュー
+	generalViewDesc.BufferLocation = _Generalbuff->GetGPUVirtualAddress();
+	generalViewDesc.SizeInBytes = size;
+	_dev->CreateConstantBufferView(&generalViewDesc, matH);
 
 	//マップ
-	D3D12_RANGE range = { 0,0 };
-	General* _vBufferptr = nullptr;
-
-	Generalbuff->Map(0, &range, (void**)&_vBufferptr);
-	memcpy(_vBufferptr, &general, sizeof(general));
-	Generalbuff->Unmap(0, nullptr);
-
-	_gview.BufferLocation = Generalbuff->GetGPUVirtualAddress();
-	_gview.SizeInBytes = sizeof(General);
-	_gview.StrideInBytes = sizeof(General);
+	_Generalbuff->Map(0, nullptr, (void**)&_vBufferptr);
+	memcpy(_vBufferptr, &general, size);
 }
 
 
@@ -1574,6 +1593,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 		}
 	}
 
+	general.time = 0;
+
 	InitCommand();
 
 	InitFence();
@@ -1591,6 +1612,8 @@ Wrapper::Wrapper(HINSTANCE h, HWND hwnd)
 	InitPath2ndRTVSRV();
 
 	InitPath3rdRTVSRV();
+
+	InitConstantBuff();
 
 	_camera.reset(new Camera(_dev));
 
@@ -1751,8 +1774,6 @@ void Wrapper::Update()
 	_cmdList->IASetVertexBuffers(0, 1, &_floor->GetView());
 	_cmdList->DrawInstanced(4, 1, 0, 0);
 
-	
-
 	for (int i = 0; i < _1stPathBuffers.size(); ++i) {
 		//バリア閉じ
 		_cmdList->ResourceBarrier(
@@ -1884,7 +1905,6 @@ void Wrapper::PeraUpdate()
 
 void Wrapper::Pera2Update()
 {
-
 	unsigned char keyState[256];
 
 	auto result = _cmdAllocator->Reset();							//アロケーターのリセット
@@ -2017,6 +2037,9 @@ void Wrapper::Pera3Update()
 	auto result = _cmdAllocator->Reset();							//アロケーターのリセット
 	result = _cmdList->Reset(_cmdAllocator, _pera3pipeline);		//コマンドリストのリセット
 
+	general.time++;
+	*_vBufferptr = general;
+
 	//現在のバックバッファのインデックス
 	auto bbIdx = _swapchain->GetCurrentBackBufferIndex();
 
@@ -2075,6 +2098,10 @@ void Wrapper::Pera3Update()
 	_cmdList->SetDescriptorHeaps(1, &_depthSrvHeap);
 	_cmdList->SetGraphicsRootDescriptorTable(4, _depthSrvHeap->GetGPUDescriptorHandleForHeapStart());
 
+	//時間をシェーダに渡す
+	_cmdList->SetDescriptorHeaps(1, &generalHeap);
+	_cmdList->SetGraphicsRootDescriptorTable(5, generalHeap->GetGPUDescriptorHandleForHeapStart());
+
 	_cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	//バッファービューのセット
@@ -2090,6 +2117,7 @@ void Wrapper::Pera3Update()
 	ImGui::Begin("gui");
 	ImGui::Bullet();
 	ImGui::Text(modelPath.c_str());
+	ImGui::CheckboxFlags("DepthOfField", &general.depthfieldflag, 1);
 	ImGui::Bullet();
 	ImGui::Text(motionPath.c_str());
 	ImGui::SliderInt("InstanceNum", &InstanceNum, 1, 25);

@@ -21,7 +21,8 @@ struct VertexTex {
 };
 
 struct General {
-	int time = 0;
+	float time = 0;
+	unsigned int depthfieldflag = false;
 };
 
 class Wrapper
@@ -196,8 +197,9 @@ private:
 	//定数バッファ(変数用)
 	void InitConstantBuff();
 	General general;
-	ID3D12Resource *Generalbuff;
-	D3D12_VERTEX_BUFFER_VIEW _gview = {};
+	ID3D12Resource *_Generalbuff;
+	ID3D12DescriptorHeap* generalHeap;
+	General* _vBufferptr = nullptr;
 
 public:
 	Wrapper(HINSTANCE h, HWND hwnd);
