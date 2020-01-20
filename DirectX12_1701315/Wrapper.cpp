@@ -1492,6 +1492,7 @@ void Wrapper::InitEffekseer()
 
 	//ƒXƒP[ƒ‹‚ðŒˆ‚ß‚é
 	efkManager->SetScale(efkHandle, 5, 5, 5);
+
 }
 
 void Wrapper::InitIMGUI(HWND hwnd)
@@ -2109,17 +2110,24 @@ void Wrapper::Pera3Update()
 
 	_cmdList->DrawInstanced(4, 1, 0, 0);
 
+	/*unsigned char *pixel;
+	int width;
+	int height;
+	ImGuiIO &imgui = ImGui::GetIO();
+	imgui.Fonts->GetTexDataAsRGBA32(&pixel, &width, &height);*/
+	//imgui.Fonts->GetTexDataAsAlpha8(&pixel, &width, &height);
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
+
 	ImGui::NewFrame();
 
 	ImGui::SetNextWindowSize(ImVec2(500, 500));
 	ImGui::Begin("gui");
 	ImGui::Bullet();
 	ImGui::Text(modelPath.c_str());
-	ImGui::CheckboxFlags("DepthOfField", &general.depthfieldflag, 1);
 	ImGui::Bullet();
 	ImGui::Text(motionPath.c_str());
+	ImGui::CheckboxFlags("DepthOfField", &general.depthfieldflag, 1);
 	ImGui::SliderInt("InstanceNum", &InstanceNum, 1, 25);
 	ImGui::ColorPicker3("BackColor", clearColor, true);
 	ImGui::End();

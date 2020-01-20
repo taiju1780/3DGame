@@ -56,7 +56,7 @@ void Application::InitWindow()
 	WNDCLASSEX w	= {};
 	w.cbSize		= sizeof(WNDCLASSEX);
 	w.lpfnWndProc	= (WNDPROC)WindowProcedure; //コールバック関数の指定(どこに情報を返すか)
-	w.lpszClassName = "DX12Project";			//アプリーケーション名の指定
+	w.lpszClassName = "1701315_古賀大樹";			//アプリーケーション名の指定
 	w.hInstance		= GetModuleHandle(0);		//ハンドル
 	RegisterClassEx(&w);						//アプリケーションクラス
 
